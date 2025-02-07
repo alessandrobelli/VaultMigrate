@@ -46,12 +46,8 @@ async function downloadFile(url, outputPath, app) {
 			cache: "default",
 		});
 
-		console.log("Received response:", response);
-
 		if (!response) {
 			throw new Error(`Failed to download file.`);
-		} else {
-			console.log("response", response);
 		}
 
 		// Convert the response to an ArrayBuffer
@@ -81,15 +77,14 @@ const sanitizeTitle = (title) => {
 };
 
 const generateUniqueTitle = (title, folderPath) => {
-    let uniqueTitle = title;
-    let counter = 1;
-    while (fs.existsSync(`${folderPath}/${uniqueTitle}.md`)) {
-        uniqueTitle = `${title} (${counter})`;
-        counter += 1;
-    }
-    return uniqueTitle;
+	let uniqueTitle = title;
+	let counter = 1;
+	while (fs.existsSync(`${folderPath}/${uniqueTitle}.md`)) {
+		uniqueTitle = `${title} (${counter})`;
+		counter += 1;
+	}
+	return uniqueTitle;
 };
-
 
 const writeFilePromise = (fileName, content) => {
 	return new Promise((resolve, reject) => {
@@ -111,5 +106,5 @@ module.exports = {
 	getImageExtension,
 	sanitizeTitle,
 	writeFilePromise,
-	generateUniqueTitle
+	generateUniqueTitle,
 };

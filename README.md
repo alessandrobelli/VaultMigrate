@@ -1,81 +1,49 @@
-> WIP Unfortunately I don't have time to finish this. As soon as I can I will and publish it.
+# Notion to Obsidian Migration (N2O)
 
-# Notion Migration Plugin for Obsidian 🚀
+> **⚠️ Work in Progress**  
+> This plugin is currently in beta testing and has been tested with a limited set of databases. While functional, it needs more testing across different database structures and use cases. Your feedback and contributions would be greatly appreciated to make it more robust!
 
-## Overview 🌐
+A plugin to seamlessly migrate Notion databases to Obsidian.
 
-The N2O (Notion to Obsidian) allows you to seamlessly migrate your Notion databases into your Obsidian vault.
-Say goodbye to the manual labor of copying and pasting your data! 🙌
+## Features
+- Import Notion databases with properties preserved in frontmatter 
+- Support for all Notion property types (text, numbers, dates, relations, files)
+- Dataview-compatible property formatting
+- Configurable file organization and naming
+- Progress tracking and error handling
 
+## Setup
+1. Create a Notion integration:
+  - Go to [Notion Integrations](https://www.notion.so/my-integrations)
+  - Create new integration
+  - Copy the API key
+2. Share your Notion database with the integration:
+  - Open database in Notion
+  - Click '...' → 'Add connections' → Select your integration
 
-![Plugin Screenshot](./screenshot.png)
+## Usage
+1. Enter your Notion API key
+2. Click "Search DBs" to list available databases
+3. Select target database
+4. Configure migration settings:
+  - Migration path for notes
+  - Attachment path for files
+  - Content formatting options
+5. Click "Start Migration"
 
-## Features 🌟
+## Settings
+- **Create relations inside page**: Adds relation links in note content
+- **Create Semantic Linking**: Enables Dataview-style linking
+- **Squash Date Names**: Makes date fields Dataview-compatible
+- **Attach page ID**: Prevents filename conflicts
+- **Import page content**: Includes Notion page content
 
-- 🗝️ **Notion API Integration**: Use your Notion API key to connect directly to your Notion workspace.
-- 📚 **Database ID Search**: Easily find your Notion database by ID.
-- 📂 **Dynamic Folder Suggestions**: As you type the migration path, get real-time folder suggestions.
-- 🖋️ **Page Relations**: Choose to insert relations inside the page if your Notion notes have properties that link to other pages.
-- 🏷️ **Attach Page ID**: Option to attach Notion page ID to Obsidian note titles, useful if you have pages with the same name. Anyway the plugin will use a sequential number at the end.
-- 📄 **Page Content**: Toggle to import the content of the pages from Notion.
-- 📝 **Migration Log**: Keep track of your migration progress.
+## Known Issues
+- If you use revision control with your obsidian vault, the name of your Notion pages might be too long
+- Notion API rate limits may affect large database migrations
 
-## Installation 🛠️
+## Support
+Issues and feature requests: [GitHub Issues](https://github.com/alessandrobelli/notion-to-obsidian/issues)
 
-1. Open Obsidian
-2. Go to `Community plugins` in your `Settings`
-3. Search for `Notion to Obsidian`
-4. Click `Install`
-
-## How to Use 📘
-
-### Notion API Key
-
-First, you'll need go to Notion to get your secret API key and give it permissions for the databases you want import. 
-
-1. **Create API Key** Visit the [Notion Integrations](https://www.notion.so/my-integrations) page and create a new integration.
-2. Click `Show Integration` and copy the secret key. This is your Notion API key.
-3. **Notion Databases**: For each database you want to import, visit the database page and click `...` menu in the top right corner.
-4. Choose `Add Connection` and select the name of the integration you just created.
-
-### Settings Tab
-
-Navigate to the `Notion to Obsidian` settings tab, where you can:
-
-1. **Enter your Notion API Key**: Make sure you've integrated your Notion workspace with the plugin.
-
-2. **Search Notion Databases**: Click the `Search DBs` button to populate a list of databases you can migrate.
-
-3. **Specify the Database ID**: After finding your database, specify its ID. You can just click on any in the list.
-
-4. **Set Migration Path**: First create then choose the Obsidian folder where you want the Notion database to be migrated to.
-
-5. **Set Optional Parameters**:
-    - `Create relations inside the page`: To include relations inside the Obsidian note. In this way they won't appear in frontmatter and you can see the connection in the graph.
-    - `Attach page ID at the end`: To append Notion's page ID at the end of your Obsidian note.
-    - `Import page content`: To import the actual content of your Notion pages into Obsidian.
-
-6. **Start the Migration**: Click `Start Migration`. A migration log will appear showing the progress.
-
-7. **Stop the Migration**: If you need to stop the migration for any reason, click `Stop Migration`.
-
-### Migration Log
-
-You can view the migration log to see the details of what was migrated, any errors, etc. You can also clear the log by clicking `Clear Log`.
-
-## Known Issues ❗
-
-1. Sometimes the migration log won't clear.
-2. Not all Notion content is (well) supported.
-
-## Contributing 🤝
-
-Feel free to create an issue or pull request if you find any bugs or have some great feature ideas.
-
-## License 📜
-
-MIT License.
-
----
-
-🎉 **Happy migrating your Notion databases into Obsidian!** 🎉
+## License
+MIT License

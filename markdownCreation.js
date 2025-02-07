@@ -329,9 +329,6 @@ async function createMarkdownFiles(
 
 										default:
 											// Handle other or unknown formula types inside rollup
-											console.log(
-												rollupItem.type + " not handled"
-											);
 											break;
 									}
 									break;
@@ -355,8 +352,6 @@ async function createMarkdownFiles(
 					break;
 
 				default:
-					console.log(property.type + " not defined");
-
 					break;
 			}
 		}
@@ -377,15 +372,9 @@ async function createMarkdownFiles(
 				console.error("Error in extractContentFromPage:", error);
 			}
 		}
-		console.log(
-			"Writing file: " + `${vaultPath}/${folderName}/${title}.md`
-		);
 
 		promises.push(
 			writeFilePromise(`${vaultPath}/${folderName}/${title}.md`, content)
-		);
-		console.log(
-			"File written: " + `${vaultPath}/${folderName}/${title}.md`
 		);
 	}
 	await Promise.all(promises);
