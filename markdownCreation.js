@@ -1,12 +1,31 @@
-import {moment, request} from "obsidian";
-import {extractContentFromPage} from "./notionHandling";
-import {downloadFile, sanitizeTitle, writeFilePromise, generateUniqueTitle} from "./utilities";
+import { moment, request } from "obsidian";
+import { extractContentFromPage } from "./notionHandling";
+import {
+	downloadFile,
+	sanitizeTitle,
+	writeFilePromise,
+	generateUniqueTitle,
+} from "./utilities";
 import path from "path";
 
-async function createMarkdownFiles(allPages, folderName, apiKey, app, attachPageId, importPageContent, importControl, logMessage, createRelationContentPage, enabledProperties, createSemanticLinking, attachmentPath, squashDateNamesForDataview) {
+async function createMarkdownFiles(
+	allPages,
+	folderName,
+	apiKey,
+	app,
+	attachPageId,
+	importPageContent,
+	importControl,
+	logMessage,
+	createRelationContentPage,
+	enabledProperties,
+	createSemanticLinking,
+	attachmentPath,
+	squashDateNamesForDataview
+) {
 	const promises = [];
 	const vaultPath = app.vault.adapter.basePath; // Get the base path of the Obsidian vault
-    let pageTitle = "";
+	let pageTitle = "";
 	for (const page of allPages) {
 		let relationLinks = [];
 		let relationSemanticLinks = [];
@@ -16,11 +35,9 @@ async function createMarkdownFiles(allPages, folderName, apiKey, app, attachPage
 		}
 		let title = "empty";
 		for (const [key, property] of Object.entries(page.properties)) {
-
 			if (property.title && property.title[0]) {
 				title = property.title[0].plain_text;
 				title = sanitizeTitle(title);
-
 
 				break;
 			}
@@ -31,22 +48,21 @@ async function createMarkdownFiles(allPages, folderName, apiKey, app, attachPage
 
 		let content = `---\n`;
 
-
 		for (const [key, property] of Object.entries(page.properties)) {
-
-
 			if (enabledProperties[key] === false) {
 				continue;
 			}
 
-
 			const safeKey = (key) => (/[^\w\s]/.test(key) ? `"${key}"` : key);
-			const safeValue = (value) => (/[\W_]/.test(value) ? `"${value}"` : value);
+			const safeValue = (value) =>
+				/[\W_]/.test(value) ? `"${value}"` : value;
 
 			switch (property.type) {
 				case "select":
 					if (property.select) {
-						content += `${safeKey(key)}: ${safeValue(property.select.name)}\n`;
+						content += `${safeKey(key)}: ${safeValue(
+							property.select.name
+						)}\n`;
 					}
 					break;
 				case "rich_text":
@@ -54,20 +70,30 @@ async function createMarkdownFiles(allPages, folderName, apiKey, app, attachPage
 						const textContent = property.rich_text
 							.map((text) => text.plain_text)
 							.join("")
-							.replace(/\n/g, ' '); // Replacing newline characters with spaces
-						content += `${safeKey(key)}: >-\n  ${safeValue(textContent)}\n`;
+							.replace(/\n/g, " "); // Replacing newline characters with spaces
+						content += `${safeKey(key)}: >-\n  ${safeValue(
+							textContent
+						)}\n`;
 					} else {
 						content += `${safeKey(key)}: null\n`;
 					}
 
 					break;
 				case "checkbox":
-					content += `${safeKey(key)}: ${property.checkbox ? 'true' : 'false'}\n`;
+					content += `${safeKey(key)}: ${
+						property.checkbox ? "true" : "false"
+					}\n`;
 					break;
 				case "date":
 					let finalKey = key;
 					if (squashDateNamesForDataview) {
-						finalKey = key.split(" ").map(word => word.charAt(0).toUpperCase() + word.slice(1)).join("");
+						finalKey = key
+							.split(" ")
+							.map(
+								(word) =>
+									word.charAt(0).toUpperCase() + word.slice(1)
+							)
+							.join("");
 					}
 
 					if (property.date && property.date.start) {
@@ -89,7 +115,9 @@ async function createMarkdownFiles(allPages, folderName, apiKey, app, attachPage
 					break;
 				case "status":
 					if (property.status && property.status.name) {
-						content += `${safeKey(key)}: ${safeValue(property.status.name)}\n`;
+						content += `${safeKey(key)}: ${safeValue(
+							property.status.name
+						)}\n`;
 					} else {
 						content += `${safeKey(key)}: \n`;
 					}
@@ -103,32 +131,67 @@ async function createMarkdownFiles(allPages, folderName, apiKey, app, attachPage
 					}
 					break;
 				case "files":
-					const files = property.files; // Access the files array
+					content += `${safeKey(key)}:\n`;
+					if (property.files && property.files.length > 0) {
+						for (const file of property.files) {
+							try {
+								let fileUrl, fileName;
 
-					// Iterate through the files and download each one
-					for (const file of files) {
-						const fileUrl = file.external.url; // Access the URL
-						const fileExtension = getFileExtension(fileUrl); // Get the file extension
+								if (file.type === "external") {
+									fileUrl = file.external?.url;
+									fileName =
+										fileUrl.split("/").pop() ||
+										`external_file_${Date.now()}`;
+								} else if (file.type === "file") {
+									fileUrl = file.file?.url;
+									fileName =
+										file.name ||
+										`notion_file_${Date.now()}`;
+								}
 
-						// Use attachmentPath here
-						const outputPath = path.join(
-							attachmentPath,
-							`file_${Date.now()}.${fileExtension}`
-						); // Define the desired output path
+								if (!fileUrl) {
+									console.warn(
+										`No URL found for file: ${fileName}`
+									);
+									continue;
+								}
 
-						try {
-							await downloadFile(fileUrl, outputPath, app);
-							content += `[[${path.basename(outputPath)}]]\n`; // Link ing the downloaded file
-						} catch (error) {
-							console.error("Failed to download and link the file:", error);
+								const fileExtension = getFileExtension(fileUrl);
+								const safeFileName = sanitizeTitle(fileName);
+								const outputPath = path.join(
+									attachmentPath,
+									`${safeFileName}${
+										fileExtension ? "." + fileExtension : ""
+									}`
+								);
+
+								await downloadFile(
+									fileUrl,
+									outputPath,
+									app,
+									apiKey
+								);
+								content += `  - [[${path.basename(
+									outputPath
+								)}]]\n`;
+								logMessage(`Downloaded file: ${fileName}`);
+							} catch (error) {
+								const errorMsg = `Failed to download file: ${error.message}`;
+								console.error(errorMsg);
+								logMessage(errorMsg);
+								content += `  - Failed: ${
+									file.name || "unnamed file"
+								} (${error.message})\n`;
+							}
 						}
+					} else {
+						content += `  []\n`;
 					}
 					break;
 
 				case "formula":
 					let formulaType = property.formula.type;
-					let formulaValue = ""
-
+					let formulaValue = "";
 
 					switch (formulaType) {
 						case "number":
@@ -142,17 +205,23 @@ async function createMarkdownFiles(allPages, folderName, apiKey, app, attachPage
 							break;
 						case "boolean":
 							// Handle boolean formula
-							content += `${safeKey(key)}: ${property.formula.boolean}\n`;
+							content += `${safeKey(key)}: ${
+								property.formula.boolean
+							}\n`;
 							break;
 
 						default:
-							console.warn(`Unknown formula type: ${formulaType}`);
+							console.warn(
+								`Unknown formula type: ${formulaType}`
+							);
 							break;
 					}
 					break;
 				case "created_time":
 					if (property.created_time) {
-						let createdDate = moment.utc(property.created_time).toISOString();
+						let createdDate = moment
+							.utc(property.created_time)
+							.toISOString();
 						content += `${safeKey(key)}: ${createdDate}\n`;
 					} else {
 						content += `${safeKey(key)}: \n`;
@@ -175,30 +244,43 @@ async function createMarkdownFiles(allPages, folderName, apiKey, app, attachPage
 								headers: requestHeaders,
 							});
 							const pageData = JSON.parse(response);
-							const pageName = pageData.properties.Name.title[0].plain_text;
+							const pageName =
+								pageData.properties.Name.title[0].plain_text;
 							relatedNames.push(pageName);
 						}
 
 						// Semantic Linking part
 						if (createSemanticLinking) {
-							const safeKeyWithUnderscores = safeKey(key).replace(/ /g, '_');
-							const semanticLink = `${safeKeyWithUnderscores}:: ${relatedNames.map(name => `[[${name}]]`).join(", ")}\n`;
+							const safeKeyWithUnderscores = safeKey(key).replace(
+								/ /g,
+								"_"
+							);
+							const semanticLink = `${safeKeyWithUnderscores}:: ${relatedNames
+								.map((name) => `[[${name}]]`)
+								.join(", ")}\n`;
 							relationSemanticLinks.push(semanticLink);
 						}
 
 						if (createRelationContentPage) {
 							// Create relation in YAML list format
-							content += `${safeKey(key)}:\n${relatedNames.map(name => `  - [[${name}]]`).join("\n")}\n`;
-							relationLinks.push(`${safeKey(key)}: ${relatedNames.map(name => `[[${name}]]`)}\n`);
+							content += `${safeKey(key)}:\n${relatedNames
+								.map((name) => `  - [[${name}]]`)
+								.join("\n")}\n`;
+							relationLinks.push(
+								`${safeKey(key)}: ${relatedNames.map(
+									(name) => `[[${name}]]`
+								)}\n`
+							);
 						} else {
 							// Create relation in YAML list format
-							content += `${safeKey(key)}:\n${relatedNames.map(name => `  - ${name}`).join("\n")}\n`;
+							content += `${safeKey(key)}:\n${relatedNames
+								.map((name) => `  - ${name}`)
+								.join("\n")}\n`;
 						}
 					} else {
 						content += `${safeKey(key)}: \n`;
 					}
 					break;
-
 
 				case "url":
 					if (property.url) {
@@ -209,31 +291,47 @@ async function createMarkdownFiles(allPages, folderName, apiKey, app, attachPage
 					break;
 
 				case "rollup":
-					const rollupArray = property.rollup ? property.rollup.array : null; // Check if rollup is defined
+					const rollupArray = property.rollup
+						? property.rollup.array
+						: null; // Check if rollup is defined
 
 					if (Array.isArray(rollupArray)) {
-						rollupArray.forEach(rollupItem => {
+						rollupArray.forEach((rollupItem) => {
 							switch (rollupItem.type) {
 								case "formula":
 									switch (rollupItem.formula.type) {
 										case "string":
 											// Handle string formula inside rollup
-											content += `${safeKey(key)}: ${safeValue(rollupItem.formula.string)}\n`;
+											content += `${safeKey(
+												key
+											)}: ${safeValue(
+												rollupItem.formula.string
+											)}\n`;
 											break;
 										case "boolean":
 											// Handle boolean formula
-											content += `${safeKey(key)}: ${rollupItem.formula.boolean}\n`;
+											content += `${safeKey(key)}: ${
+												rollupItem.formula.boolean
+											}\n`;
 											break;
 										case "number":
-											if (rollupItem.function === "percent_per_group") {
-												const numberValue = rollupItem.number;
-												content += `${safeKey(key)}: ${numberValue}\n`;
+											if (
+												rollupItem.function ===
+												"percent_per_group"
+											) {
+												const numberValue =
+													rollupItem.number;
+												content += `${safeKey(
+													key
+												)}: ${numberValue}\n`;
 											}
 											break;
 
 										default:
 											// Handle other or unknown formula types inside rollup
-											console.log(rollupItem.type + " not handled");
+											console.log(
+												rollupItem.type + " not handled"
+											);
 											break;
 									}
 									break;
@@ -244,10 +342,10 @@ async function createMarkdownFiles(allPages, folderName, apiKey, app, attachPage
 					}
 					break;
 
-
 				case "title":
 					if (property.title && property.title[0]) {
-						const keyWithUnderscores = property.title[0].plain_text.replace(/ /g, '_');
+						const keyWithUnderscores =
+							property.title[0].plain_text.replace(/ /g, "_");
 						const finalKey = safeKey(keyWithUnderscores);
 						pageTitle = finalKey;
 						content += `Alias: ${finalKey}\n`;
@@ -260,9 +358,7 @@ async function createMarkdownFiles(allPages, folderName, apiKey, app, attachPage
 					console.log(property.type + " not defined");
 
 					break;
-
 			}
-
 		}
 		content += `---\n`;
 		if (relationLinks.length > 0) content += relationLinks;
@@ -276,12 +372,10 @@ async function createMarkdownFiles(allPages, folderName, apiKey, app, attachPage
 					apiKey,
 					attachmentPath,
 					vaultPath
-				).then((result) => content += result);
+				).then((result) => (content += result));
 			} catch (error) {
-				console.error('Error in extractContentFromPage:', error);
+				console.error("Error in extractContentFromPage:", error);
 			}
-
-
 		}
 		console.log(
 			"Writing file: " + `${vaultPath}/${folderName}/${title}.md`
@@ -303,7 +397,6 @@ function getFileExtension(url) {
 	const pathname = urlObj.pathname;
 	return pathname.split(".").pop() || "";
 }
-
 
 module.exports = {
 	createMarkdownFiles,

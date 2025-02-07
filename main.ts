@@ -1,4 +1,4 @@
-import {App, FuzzySuggestModal, Plugin, PluginSettingTab, Setting, TFolder, SuggestModal} from "obsidian";
+import {App, FuzzySuggestModal, Plugin, PluginSettingTab, Setting, TFolder, Notice} from "obsidian";
 import {fetchNotionData, getDatabaseName} from "./notionHandling";
 import {createMarkdownFiles} from "./markdownCreation";
 import fs from "fs";
@@ -70,14 +70,10 @@ export default class NotionMigrationPlugin extends Plugin {
         isImporting: false
     };
 
-
     async onload() {
         await this.loadSettings();
         this.addSettingTab(new NotionMigrationSettingTab(this.app, this));
-
-
     }
-
 
     async loadSettings() {
         this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
@@ -88,14 +84,36 @@ export default class NotionMigrationPlugin extends Plugin {
     }
 }
 
-
 class NotionMigrationSettingTab extends PluginSettingTab {
     plugin: NotionMigrationPlugin;
     collapsibleContent: HTMLElement;
+    loadingEl: HTMLElement;
+    statusEl: HTMLElement;
 
     constructor(app: App, plugin: NotionMigrationPlugin) {
         super(app, plugin);
         this.plugin = plugin;
+    }
+
+    private activeNotice: Notice | null = null;  
+
+    showLoading(message: string) {
+        if (this.activeNotice) {
+            this.activeNotice.hide();
+        }
+        this.activeNotice = new Notice(message, 5000); // 5 second timeout
+        return this.activeNotice;
+    }
+    
+    hideLoading(notice: Notice) {
+        if (notice) {
+            notice.hide();
+        }
+    }
+    
+    showStatus(message: string, type: 'success' | 'error' | 'info' = 'info') {
+        const duration = type === 'error' ? 10000 : 3000;
+        new Notice(message, duration);
     }
 
     private listAllDirectories(): TFolder[] {
@@ -115,12 +133,10 @@ class NotionMigrationSettingTab extends PluginSettingTab {
         return directories;
     }
 
-
     // Declare a variable to hold the text input element for Database ID
     dbIdInput: HTMLInputElement;
 
     display(): void {
-
         const {containerEl} = this;
         containerEl.empty();
         let {logWindow, startButton, stopButton} = this.createUI(containerEl);
@@ -129,56 +145,49 @@ class NotionMigrationSettingTab extends PluginSettingTab {
             startButton.textContent = "Migrating...";
             startButton.disabled = true;
             stopButton.disabled = false;
-            // Add a spinner or other visual indication if desired
         } else {
             startButton.textContent = "Start Migration";
             startButton.disabled = false;
             stopButton.disabled = true;
         }
 
-
-        logWindow.value = this.plugin.settings.migrationLog; // Set the logWindow value to the saved log
-
-
+        logWindow.value = this.plugin.settings.migrationLog;
         stopButton.disabled = !this.plugin.importControl.isImporting;
 
         startButton.addEventListener("click", async () => {
-            const migrationPath = this.plugin.settings.migrationPath;
-
-
-            // Check if the folder exists
-            const folder = this.app.vault.getAbstractFileByPath(migrationPath);
-            if (!folder || !(folder instanceof TFolder)) {
-                logWindow.value += `Error: Folder "${migrationPath}" does not exist.\n`;
-                return; // Return early if the folder doesn't exist
-            }
-            this.plugin.settings.isImporting = true;
-            await this.plugin.saveSettings();
-            this.plugin.importControl.isImporting = true;
-            stopButton.disabled = false;
-            startButton.textContent = "Migrating...";
-            const spinnerEl = startButton.createEl("div");
-            spinnerEl.style.marginLeft = "5px";
-            spinnerEl.classList.add("spinner");
-            startButton.appendChild(spinnerEl);
-
-            startButton.disabled = true;
             try {
+                this.showLoading("Starting migration...");
+                const migrationPath = this.plugin.settings.migrationPath;
+
+                // Check if the folder exists
+                const folder = this.app.vault.getAbstractFileByPath(migrationPath);
+                if (!folder || !(folder instanceof TFolder)) {
+                    logWindow.value += `Error: Folder "${migrationPath}" does not exist.\n`;
+                    this.showStatus(`Error: Folder "${migrationPath}" does not exist`, "error");
+                    return;
+                }
+
+                this.plugin.settings.isImporting = true;
+                await this.plugin.saveSettings();
+                this.plugin.importControl.isImporting = true;
+                stopButton.disabled = false;
+                startButton.textContent = "Migrating...";
+                startButton.disabled = true;
+
                 const logMessage = (message) => {
                     logWindow.value += `${message}\n`;
                     logWindow.scrollTop = logWindow.scrollHeight;
-                    this.plugin.settings.migrationLog = logWindow.value; // Store the log in settings
+                    this.plugin.settings.migrationLog = logWindow.value;
                     this.plugin.saveSettings();
                 };
 
-                //wipeVaultAfterDelay();
                 const dbName = await getDatabaseName(this.plugin.settings.apiKey, this.plugin.settings.databaseId);
                 if (dbName) {
                     logMessage(`Starting migration from Notion database: ${dbName}`);
                 } else {
                     logMessage("Starting migration from Notion...");
                 }
-                // Fetch Notion data
+
                 logMessage("Fetching data from Notion...");
                 const allPages = await fetchNotionData(
                     this.plugin.settings.databaseId,
@@ -186,7 +195,6 @@ class NotionMigrationSettingTab extends PluginSettingTab {
                 );
                 logMessage(`${allPages.length} items fetched from Notion.`);
 
-                // Create markdown files
                 logMessage("Creating markdown files...");
                 await createMarkdownFiles(
                     allPages,
@@ -204,56 +212,61 @@ class NotionMigrationSettingTab extends PluginSettingTab {
                     this.plugin.settings.squashDateNamesForDataview,
                 );
                 logMessage("Migration completed!");
+                this.showStatus("Migration completed successfully!", "success");
             } catch (error) {
                 logWindow.value += `Error: ${error.message}\n`;
+                this.showStatus(`Migration failed: ${error.message}`, "error");
+            } finally {
+                this.hideLoading();
+                startButton.textContent = "Start Migration";
+                this.plugin.settings.isImporting = false;
+                await this.plugin.saveSettings();
+                startButton.disabled = false;
             }
-            startButton.textContent = "Start Migration";
-            spinnerEl.remove();
-
-            this.plugin.settings.isImporting = false;
-            await this.plugin.saveSettings();
-            startButton.disabled = false;
         });
 
         stopButton.addEventListener("click", async () => {
-            this.plugin.settings.isImporting = false; // Set isImporting to false in settings
-            this.plugin.importControl.isImporting = false; // Set isImporting to false in importControl
+            this.plugin.settings.isImporting = false;
+            this.plugin.importControl.isImporting = false;
             await this.plugin.saveSettings();
-
-            stopButton.disabled = true; // Disable stop button
-            startButton.textContent = "Start Migration"; // Update start button text
+            stopButton.disabled = true;
+            startButton.textContent = "Start Migration";
         });
-
     }
 
-
     async displayPageList() {
-        const apiKey = this.plugin.settings.apiKey; // Replace with the actual API key retrieval logic
-        const query = ''; // Empty query to search for all pages
-
-        const requestOptions = {
-            method: 'POST',
-            url: 'https://api.notion.com/v1/search',
-            headers: {
-                Authorization: `Bearer ${apiKey}`,
-                'Notion-Version': '2022-06-28',
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                query: query, filter: {
-                    value: 'database',
-                    property: 'object',
-                },
-            }),
-        };
-
-
         try {
+            this.showLoading("Fetching Notion databases...");
+            
+            const apiKey = this.plugin.settings.apiKey;
+            if (!apiKey) {
+                this.showStatus("Please enter your Notion API key first", "error");
+                return;
+            }
+
+            const query = '';
+            const requestOptions = {
+                method: 'POST',
+                url: 'https://api.notion.com/v1/search',
+                headers: {
+                    Authorization: `Bearer ${apiKey}`,
+                    'Notion-Version': '2022-06-28',
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    query: query,
+                    filter: {
+                        value: 'database',
+                        property: 'object',
+                    },
+                }),
+            };
+
             const response = await request(requestOptions);
             const responseData = JSON.parse(response);
 
             const container = document.getElementById('page-list-container');
-            container.innerHTML = ''; // Clear previous content
+            container.innerHTML = '';
 
             const buttonContainer = container.createDiv({
                 cls: 'hide-button-container',
@@ -262,19 +275,16 @@ class NotionMigrationSettingTab extends PluginSettingTab {
                 }
             });
 
-            // Add "Hide" button
             const hideButton = buttonContainer.createEl('button', {text: 'Hide'});
             hideButton.addEventListener('click', () => {
                 tableWrapper.style.display = tableWrapper.style.display === 'none' ? 'block' : 'none';
             });
 
-            // Add a message next to the "Hide" button
             const messageSpan = buttonContainer.createEl('span', {
                 text: 'Click on the row to update database ID. Hover to check properties.',
                 attr: {}
             });
 
-            // Create a scrollable wrapper for the table
             const tableWrapper = container.createEl('div', {
                 attr: {style: 'max-height: 350px; overflow-y: auto;'}
             });
@@ -283,25 +293,21 @@ class NotionMigrationSettingTab extends PluginSettingTab {
                 attr: {style: 'width: 100%; border-collapse: collapse;position: relative'}
             });
 
-            // Table header
             const thead = table.createEl('thead');
             const headerRow = thead.createEl('tr');
             headerRow.createEl('th', {text: 'Page Name', attr: {style: 'padding: 10px; border: 1px solid #ccc;'}});
             headerRow.createEl('th', {text: 'Page ID', attr: {style: 'padding: 10px; border: 1px solid #ccc;'}});
 
-            // Table body with clickable rows
             const tbody = table.createEl('tbody');
-
 
             for (const page of responseData.results) {
                 const pageName = page.title && page.title[0] && page.title[0].plain_text
                     ? page.title[0].plain_text
-                    : ''; // Use empty string if undefined
+                    : '';
                 const row = tbody.createEl('tr');
                 row.createEl('td', {text: pageName, attr: {style: 'padding: 10px; border: 1px solid #ccc;'}});
                 row.createEl('td', {text: page.id, attr: {style: 'padding: 10px; border: 1px solid #ccc;'}});
 
-                // Create a tooltip for the row
                 let propertiesText = "<strong>Properties</strong> <br>";
                 for (const [key, value] of Object.entries(page.properties || {})) {
                     propertiesText += `${key} - ${value.type} <br>`;
@@ -310,16 +316,12 @@ class NotionMigrationSettingTab extends PluginSettingTab {
                     content: propertiesText,
                     allowHTML: true,
                     theme: 'light',
-                    delay: 100,  // Delay in showing tooltip
-                    arrow: true,  // Show the arrow
-                    duration: [300, 200],  // Duration of show/hide animations
+                    delay: 100,
+                    arrow: true,
+                    duration: [300, 200],
                 });
 
-                // Existing row click event code
                 row.addEventListener('click', async () => {
-
-
-                    // Create a loading indicator
                     const loadingIndicator = document.createElement('div');
                     loadingIndicator.innerHTML = 'Loading properties...';
                     loadingIndicator.style.position = 'absolute';
@@ -332,7 +334,6 @@ class NotionMigrationSettingTab extends PluginSettingTab {
                     loadingIndicator.style.padding = '15px';
                     loadingIndicator.style.borderRadius = '5px';
 
-                    // Add the loading indicator to the table wrapper
                     tableWrapper.appendChild(loadingIndicator);
                     this.plugin.settings.databaseId = page.id;
                     if (this.dbIdInput) {
@@ -341,22 +342,24 @@ class NotionMigrationSettingTab extends PluginSettingTab {
                     await this.plugin.saveSettings();
                     this.plugin.settings.enabledProperties = {};
 
-                    // Fetch properties for the clicked database
                     const allPages = await fetchNotionData(page.id, this.plugin.settings.apiKey);
 
-                    // Remove the loading indicator
                     tableWrapper.removeChild(loadingIndicator);
+                    if (allPages.length === 0) {
+                        this.showStatus("This database is empty", "info");
+                        return;
+                    }
+
+                    
+                    
                     if (allPages.length > 0) {
-                        // Assume all pages have the same properties and take the properties of the first page as an example
                         const exampleProperties = allPages[0].properties;
 
-                        // Remove any existing properties table
                         const existingPropertiesTable = document.getElementById('properties-table');
                         if (existingPropertiesTable) {
                             existingPropertiesTable.remove();
                         }
 
-                        // Create a new properties table
                         const propertiesTable = this.collapsibleContent.createEl('table', {
                             attr: {
                                 id: 'properties-table',
@@ -394,11 +397,10 @@ class NotionMigrationSettingTab extends PluginSettingTab {
                             const checkbox = checkboxCell.createEl('input', {
                                 attr: {
                                     type: 'checkbox',
-                                    checked: this.plugin.settings.enabledProperties[key] ?? true  // Default to true
+                                    checked: this.plugin.settings.enabledProperties[key] ?? true
                                 }
                             });
 
-                            // Listen for changes to each checkbox
                             checkbox.addEventListener('change', async (event) => {
                                 const isChecked = (event.target as HTMLInputElement).checked;
                                 this.plugin.settings.enabledProperties[key] = isChecked;
@@ -407,54 +409,82 @@ class NotionMigrationSettingTab extends PluginSettingTab {
                         }
                     }
                 });
-
-
             }
         } catch (error) {
             console.error('Error fetching data:', error);
+            this.showStatus(`Failed to fetch databases: ${error.message}`, "error");
+        } finally {
+            this.hideLoading();
         }
     }
 
-
     private createUI(containerEl: HTMLElement) {
-
+        containerEl.empty();
+    
         containerEl.createEl("h1", {
-            text: "Notion to Obsidian Migration Settings",
+            text: "Notion to Obsidian Migration",
+            cls: "n2o-main-header"
         });
-
+    
+        // Connection Settings Section
+        containerEl.createEl("h2", {
+            text: "Connection Settings",
+            cls: "n2o-section-header"
+        });
+    
         new Setting(containerEl)
             .setName("Notion API Key")
-            .setDesc("Enter your Notion API key here.")
+            .setDesc(createFragment(frag => {
+                frag.appendText("Enter your Notion API key here. ");
+                frag.createEl("a", {
+                    text: "Get your API key",
+                    href: "https://www.notion.so/my-integrations",
+                    cls: "n2o-link"
+                });
+            }))
             .addText((text) =>
                 text.setValue(this.plugin.settings.apiKey).onChange(async (value) => {
                     this.plugin.settings.apiKey = value;
                     await this.plugin.saveSettings();
                 })
-            ).addButton(button => button
-            .setButtonText("Search DBs")
-            .setCta()
-            .onClick(() => {
-                this.displayPageList();
-            })
-        );
-// Placeholder for the page list table
+            )
+            .addButton(button => button
+                .setButtonText("Search DBs")
+                .setCta()
+                .onClick(() => {
+                    this.displayPageList();
+                })
+            );
+    
         containerEl.createDiv({
             attr: {id: 'page-list-container'}
         });
-
-        // Create a header for the collapsible section
+    
+        // Database Settings Section
+        containerEl.createEl("h2", {
+            text: "Database Settings",
+            cls: "n2o-section-header"
+        });
+    
+        new Setting(containerEl)
+            .setName("Database ID")
+            .setDesc("Selected database ID - click on a database above to update")
+            .addText((text) => {
+                this.dbIdInput = text.inputEl;
+                text
+                    .setValue(this.plugin.settings.databaseId)
+                    .setDisabled(true)
+                    .onChange(async (value) => {
+                        this.plugin.settings.databaseId = value;
+                        await this.plugin.saveSettings();
+                    });
+            });
+    
         const collapsibleHeader = containerEl.createEl("button", {
             text: "Show Table Properties",
             attr: {class: 'collapsible'}
         });
 
-        // Initialize the collapsible content
-        this.collapsibleContent = containerEl.createEl("div", {
-            attr: {class: 'collapsible-content'}
-        });
-
-
-        // JavaScript to handle the collapsible behavior
         collapsibleHeader.addEventListener("click", function () {
             this.classList.toggle("active");
             const content = this.nextElementSibling;
@@ -464,48 +494,50 @@ class NotionMigrationSettingTab extends PluginSettingTab {
                 content.style.display = "block";
             }
         });
-
-
-        new Setting(containerEl)
-            .setName("Database ID")
-            .setDesc("Enter your Notion Database ID here.")
-            .addText((text) => {
-                this.dbIdInput = text.inputEl;
-                text
-                    .setValue(this.plugin.settings.databaseId)
-                    .onChange(async (value) => {
-                        this.plugin.settings.databaseId = value;
-                        await this.plugin.saveSettings();
-                    })
-            });
-
+    
+        this.collapsibleContent = containerEl.createEl("div", {
+            attr: {class: 'collapsible-content'}
+        });
+    
+        // Migration Settings Section
+        containerEl.createEl("h2", {
+            text: "Migration Settings",
+            cls: "n2o-section-header"
+        });
+    
         new Setting(containerEl)
             .setName("Migration Path")
+            .setDesc("Select where to save the migrated notes")
             .addText((text) => {
                 text.setValue(this.plugin.settings.migrationPath)
                     .onChange(async (value) => {
                         this.plugin.settings.migrationPath = value;
                         await this.plugin.saveSettings();
                     });
-
-                new FolderSuggest(text.inputEl); // Initialize FolderSuggest
+                new FolderSuggest(text.inputEl);
             });
-
+    
         new Setting(containerEl)
             .setName("Attachment Path")
+            .setDesc("Select where to save attachments (images, files)")
             .addText((text) => {
                 text.setValue(this.plugin.settings.attachmentPath)
                     .onChange(async (value) => {
                         this.plugin.settings.attachmentPath = value;
                         await this.plugin.saveSettings();
                     });
-
-                new FolderSuggest(text.inputEl); // Initialize FolderSuggest
+                new FolderSuggest(text.inputEl);
             });
-
+    
+        // Content Settings Section
+        containerEl.createEl("h2", {
+            text: "Content Settings",
+            cls: "n2o-section-header"
+        });
+    
         new Setting(containerEl)
             .setName("Create relations also inside the page")
-            .setDesc("By default you can't link notes inside properties, so we can also insert relations inside the page")
+            .setDesc("Creates clickable links ([[Page]]) both in frontmatter and note body. Useful for graph view and navigation.")
             .addToggle(toggle =>
                 toggle
                     .setValue(this.plugin.settings.createRelationContentPage)
@@ -514,10 +546,10 @@ class NotionMigrationSettingTab extends PluginSettingTab {
                         await this.plugin.saveSettings();
                     })
             );
-
+    
         new Setting(containerEl)
             .setName("Create Semantic Linking")
-            .setDesc("Enable this option to create semantic links between notes.")
+            .setDesc("Creates Dataview-compatible links (property:: [[Page]]). Enable if you use Dataview plugin.")
             .addToggle(toggle =>
                 toggle
                     .setValue(this.plugin.settings.createSemanticLinking)
@@ -526,23 +558,22 @@ class NotionMigrationSettingTab extends PluginSettingTab {
                         await this.plugin.saveSettings();
                     })
             );
-
+    
         new Setting(containerEl)
-            .setName("Squash Date Names for Dataview")
-            .setDesc("Enable this option to squash date field names into a single word for Dataview compatibility.")
+            .setName("Squash Date Names")
+            .setDesc("Converts multi-word date fields (e.g., 'Due Date') to camelCase ('DueDate') for Dataview compatibility.")
             .addToggle(toggle =>
                 toggle
-                    .setValue(this.plugin.settings.squashDateNamesForDataview) // Assuming you have this field in your settings
+                    .setValue(this.plugin.settings.squashDateNamesForDataview)
                     .onChange(async value => {
                         this.plugin.settings.squashDateNamesForDataview = value;
                         await this.plugin.saveSettings();
                     })
             );
-
-
+    
         new Setting(containerEl)
-            .setName("Attach page ID at the end")
-            .setDesc("Useful if you have pages with the same name in Notion, since Obsidian doesn't support same name notes. Anyway the plugin will attach a sequential number.")
+            .setName("Attach page ID")
+            .setDesc("Adds Notion's page ID to filenames to prevent conflicts. Example: 'Note_7b8b0713'")
             .addToggle(toggle =>
                 toggle
                     .setValue(this.plugin.settings.attachPageId)
@@ -551,7 +582,7 @@ class NotionMigrationSettingTab extends PluginSettingTab {
                         await this.plugin.saveSettings();
                     })
             );
-
+    
         new Setting(containerEl)
             .setName("Import page content")
             .setDesc("Choose whether to import the content of the pages from Notion.")
@@ -563,42 +594,45 @@ class NotionMigrationSettingTab extends PluginSettingTab {
                         await this.plugin.saveSettings();
                     })
             );
-
-
-        containerEl.createEl("h3", {text: "Migration Log"});
+    
+        // Migration Log Section
+        containerEl.createEl("h2", {
+            text: "Migration Log",
+            cls: "n2o-section-header"
+        });
+    
         const logWindow = containerEl.createEl("textarea", {
             attr: {
-                style:
-                    "width: 100%; height: 150px; margin-bottom: 10px; resize: none; cursor: pointer", // Added resize: none;
-                readonly: "readonly", // Made the textarea readonly
-            },
-        }), buttonContainer = containerEl.createDiv({
-            cls: 'button-container',
-            attr: {
-                style: 'margin-top: 20px; display: flex; justify-content: space-between;'
-            }
-        }), startButton = buttonContainer.createEl("button", {
-            text: "Start Migration",
-            cls: ["mod-cta", "start-button"],
-        }), stopButton = buttonContainer.createEl("button", {
-            text: "Stop Migration",
-            cls: ["mod-warning", "stop-button"],
-            attr: {
-                style: 'margin-left: 10px'
+                class: "n2o-log-window",
+                readonly: "readonly"
             }
         });
-        buttonContainer
-            .createEl("button", {
-                text: "Clear Log",
-                cls: "mod-warning", // Using a warning style for the clear button
-            })
-            .addEventListener("click", () => {
-                logWindow.value = "";
-                this.plugin.settings.migrationLog = ""; // Clear the log in settings
-                this.plugin.saveSettings();
-            });
+    
+        const buttonContainer = containerEl.createDiv({
+            cls: 'n2o-button-container'
+        });
+    
+        const startButton = buttonContainer.createEl("button", {
+            text: "Start Migration",
+            cls: ["mod-cta", "n2o-start-button"],
+        });
+    
+        const stopButton = buttonContainer.createEl("button", {
+            text: "Stop Migration",
+            cls: ["mod-warning", "n2o-stop-button"],
+        });
+    
+        const clearButton = buttonContainer.createEl("button", {
+            text: "Clear Log",
+            cls: "mod-warning",
+        });
+    
+        clearButton.addEventListener("click", () => {
+            logWindow.value = "";
+            this.plugin.settings.migrationLog = "";
+            this.plugin.saveSettings();
+        });
+    
         return {logWindow, startButton, stopButton};
     }
-
-
 }

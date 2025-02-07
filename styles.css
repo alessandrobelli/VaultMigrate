@@ -3,190 +3,303 @@
 This CSS file will be included with your plugin, and
 available in the app when your plugin is enabled.
 
-If your plugin does not need CSS, delete this file.
-
 */
 
+.loading-container {
+	position: fixed;
+	top: 0;
+	left: 0;
+	right: 0;
+	background: var(--background-primary);
+	padding: 8px;
+	box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+	z-index: 1000;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	gap: 12px;
+}
+
+.loading-spinner {
+	width: 40px;
+	height: 40px;
+	border: 4px solid var(--background-modifier-border);
+	border-top: 4px solid var(--interactive-accent);
+	border-radius: 50%;
+	animation: spin 1s linear infinite;
+}
+
+.loading-status {
+	color: var(--text-normal);
+	font-size: 14px;
+	text-align: center;
+}
+
+.status-message {
+	position: fixed;
+	bottom: 20px;
+	right: 20px;
+	padding: 12px 20px;
+	border-radius: 4px;
+	animation: fadeInOut 3s ease-in-out;
+	z-index: 1000;
+	font-size: 14px;
+}
+
+.status-success {
+	background-color: var(--background-modifier-success);
+	color: var(--text-on-accent);
+}
+
+.status-error {
+	background-color: var(--background-modifier-error);
+	color: var(--text-on-accent);
+}
+
+.status-info {
+	background-color: var(--background-modifier-border);
+	color: var(--text-normal);
+}
+
 .spinner {
-    position: absolute;
-    border: 4px solid rgba(255, 255, 255, 0.3); /* Light gray */
-    border-radius: 50%;
-    border-top: 4px solid #000000; /* Black */
-    width: 24px;
-    height: 24px;
-    animation: spin 1s linear infinite;
+	position: absolute;
+	border: 4px solid rgba(255, 255, 255, 0.3);
+	border-radius: 50%;
+	border-top: 4px solid #000000;
+	width: 24px;
+	height: 24px;
+	animation: spin 1s linear infinite;
 }
 
 .suggestion-item:hover {
-    background-color: #e0e0e0;
+	background-color: #e0e0e0;
 }
 
 .suggestion-item.active {
-    background-color: #d1d1d1;
+	background-color: #d1d1d1;
 }
-
-
-@keyframes spin {
-    0% {
-        transform: rotate(0deg);
-    }
-    100% {
-        transform: rotate(360deg);
-    }
-}
-
 
 tbody tr:hover {
-    opacity: 0.8;
+	opacity: 0.8;
 }
 
 tbody {
-    cursor: pointer;
+	cursor: pointer;
 }
 
 .tooltip-text {
-    visibility: hidden;
-    position: absolute;
-    background-color: #26262a;
-    color: #fff;
-    text-align: center;
-    padding: 5px;
-    border-radius: 4px;
-    margin-top: 10px;
-    z-index: 1;
+	visibility: hidden;
+	position: absolute;
+	background-color: #26262a;
+	color: #fff;
+	text-align: center;
+	padding: 5px;
+	border-radius: 4px;
+	margin-top: 10px;
+	z-index: 1;
 }
 
 .collapsible {
-    background-color: #26262a;
-    color: #cccccc;
-    cursor: pointer;
-    padding: 18px;
-    width: 100%;
-    border: none;
-    text-align: left;
-    outline: none;
-    font-size: 15px;
+	background-color: #26262a;
+	color: #cccccc;
+	cursor: pointer;
+	padding: 18px;
+	width: 100%;
+	border: none;
+	text-align: left;
+	outline: none;
+	font-size: 15px;
 }
 
 .collapsible-content {
-    padding: 0 18px;
-    display: none;
-    overflow: hidden;
-    background-color: #26262a;
-    color: #cccccc;
+	padding: 0 18px;
+	display: none;
+	overflow: hidden;
+	background-color: #26262a;
+	color: #cccccc;
 }
 
 .collapsible.active {
-    background-color: #26262a;
+	background-color: #26262a;
 }
 
+@keyframes spin {
+	0% {
+		transform: rotate(0deg);
+	}
+	100% {
+		transform: rotate(360deg);
+	}
+}
+
+@keyframes fadeInOut {
+	0% {
+		opacity: 0;
+		transform: translateY(20px);
+	}
+	10% {
+		opacity: 1;
+		transform: translateY(0);
+	}
+	90% {
+		opacity: 1;
+		transform: translateY(0);
+	}
+	100% {
+		opacity: 0;
+		transform: translateY(-20px);
+	}
+}
 
 /**
 tippy.js css
- */
-
-/*
- *  Originally copied from dist/tippy.css in the tippy.js package.
- *
- *  Modifications were made to implement compatibility with
- *  Obsidian themes.
- */
+*/
 
 .theme-light {
-    --link-tooltip-background: #333;
-    --link-tooltip-text: #fff;
+	--link-tooltip-background: #333;
+	--link-tooltip-text: #fff;
 }
 
 .theme-dark {
-    --link-tooltip-background: #ccc;
-    --link-tooltip-text: #000;
+	--link-tooltip-background: #ccc;
+	--link-tooltip-text: #000;
 }
 
 .tippy-box[data-animation="fade"][data-state="hidden"] {
-    opacity: 0;
+	opacity: 0;
 }
 
 [data-tippy-root] {
-    max-width: calc(100vw - 10px);
+	max-width: calc(100vw - 10px);
 }
 
 .tippy-box {
-    position: relative;
-    background-color: var(--link-tooltip-background);
-    color: var(--link-tooltip-text);
-    border-radius: 4px;
-    font-size: 14px;
-    line-height: 1.4;
-    outline: 0;
-    transition-property: transform, visibility, opacity;
+	position: relative;
+	background-color: var(--link-tooltip-background);
+	color: var(--link-tooltip-text);
+	border-radius: 4px;
+	font-size: 14px;
+	line-height: 1.4;
+	outline: 0;
+	transition-property: transform, visibility, opacity;
 }
 
 .tippy-box[data-placement^="top"] > .tippy-arrow {
-    bottom: 0;
+	bottom: 0;
 }
 
 .tippy-box[data-placement^="top"] > .tippy-arrow:before {
-    bottom: -7px;
-    left: 0;
-    border-width: 8px 8px 0;
-    border-top-color: initial;
-    transform-origin: center top;
+	bottom: -7px;
+	left: 0;
+	border-width: 8px 8px 0;
+	border-top-color: initial;
+	transform-origin: center top;
 }
 
 .tippy-box[data-placement^="bottom"] > .tippy-arrow {
-    top: 0;
+	top: 0;
 }
 
 .tippy-box[data-placement^="bottom"] > .tippy-arrow:before {
-    top: -7px;
-    left: 0;
-    border-width: 0 8px 8px;
-    border-bottom-color: initial;
-    transform-origin: center bottom;
+	top: -7px;
+	left: 0;
+	border-width: 0 8px 8px;
+	border-bottom-color: initial;
+	transform-origin: center bottom;
 }
 
 .tippy-box[data-placement^="left"] > .tippy-arrow {
-    right: 0;
+	right: 0;
 }
 
 .tippy-box[data-placement^="left"] > .tippy-arrow:before {
-    border-width: 8px 0 8px 8px;
-    border-left-color: initial;
-    right: -7px;
-    transform-origin: center left;
+	border-width: 8px 0 8px 8px;
+	border-left-color: initial;
+	right: -7px;
+	transform-origin: center left;
 }
 
 .tippy-box[data-placement^="right"] > .tippy-arrow {
-    left: 0;
+	left: 0;
 }
 
 .tippy-box[data-placement^="right"] > .tippy-arrow:before {
-    left: -7px;
-    border-width: 8px 8px 8px 0;
-    border-right-color: initial;
-    transform-origin: center right;
+	left: -7px;
+	border-width: 8px 8px 8px 0;
+	border-right-color: initial;
+	transform-origin: center right;
 }
 
 .tippy-box[data-inertia][data-state="visible"] {
-    transition-timing-function: cubic-bezier(0.54, 1.5, 0.38, 1.11);
+	transition-timing-function: cubic-bezier(0.54, 1.5, 0.38, 1.11);
 }
 
 .tippy-arrow {
-    width: 16px;
-    height: 16px;
-    color: var(--link-tooltip-background);
+	width: 16px;
+	height: 16px;
+	color: var(--link-tooltip-background);
 }
 
 .tippy-arrow:before {
-    content: "";
-    position: absolute;
-    border-color: transparent;
-    border-style: solid;
+	content: "";
+	position: absolute;
+	border-color: transparent;
+	border-style: solid;
 }
 
 .tippy-content {
-    position: relative;
-    padding: 10px 15px;
-    z-index: 1;
-    overflow-wrap: anywhere;
+	position: relative;
+	padding: 10px 15px;
+	z-index: 1;
+	overflow-wrap: anywhere;
+}
+
+.n2o-main-header {
+	margin-bottom: 2em;
+	padding-bottom: 0.5em;
+	border-bottom: 2px solid var(--interactive-accent);
+}
+
+.n2o-section-header {
+	margin: 2em 0 1em;
+	padding-bottom: 0.5em;
+	border-bottom: 1px solid var(--background-modifier-border);
+	color: var(--text-normal);
+}
+
+.n2o-link {
+	color: var(--interactive-accent);
+	text-decoration: none;
+}
+
+.n2o-link:hover {
+	text-decoration: underline;
+}
+
+.n2o-log-window {
+	width: 100%;
+	height: 150px;
+	margin-bottom: 10px;
+	resize: none;
+	cursor: pointer;
+	background: var(--background-secondary);
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 4px;
+	padding: 8px;
+}
+
+.n2o-button-container {
+	display: flex;
+	gap: 1em;
+	margin-top: 1em;
+}
+
+.setting-item {
+	padding: 0.75em 0;
+	border-top: none;
+}
+
+.setting-item-control {
+	justify-content: flex-end;
+	min-width: 120px;
 }
