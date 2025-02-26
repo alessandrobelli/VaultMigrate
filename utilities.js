@@ -1,4 +1,4 @@
-const { requestUrl } = require("obsidian");
+const {requestUrl} = require("obsidian");
 
 const fs = require("fs");
 const moment = require("moment");
@@ -34,8 +34,15 @@ const createFolder = async (app) => {
 
 async function downloadFile(url, outputPath, app) {
 	const vaultPath = app.vault.adapter.basePath;
+	const fullPath = path.join(vaultPath, outputPath);
 
 	try {
+		// Ensure the directory exists before trying to write the file
+		const dir = path.dirname(fullPath);
+		if (!fs.existsSync(dir)) {
+			fs.mkdirSync(dir, {recursive: true});
+		}
+
 		const response = await requestUrl({
 			url: url,
 			method: "GET",
@@ -55,7 +62,7 @@ async function downloadFile(url, outputPath, app) {
 
 		// Write the ArrayBuffer to the filesystem
 		fs.writeFileSync(
-			path.join(vaultPath, outputPath),
+			fullPath,
 			new Uint8Array(arrayBuffer)
 		);
 	} catch (error) {
@@ -88,12 +95,29 @@ const generateUniqueTitle = (title, folderPath) => {
 
 const writeFilePromise = (fileName, content) => {
 	return new Promise((resolve, reject) => {
-		fs.writeFile(fileName, content, function (err) {
+		// Ensure directory exists
+		const dir = path.dirname(fileName);
+		if (!fs.existsSync(dir)) {
+			fs.mkdirSync(dir, {recursive: true});
+		}
+
+		// Generate unique filename
+		const fileNameWithoutExt = path.join(dir, path.parse(fileName).name);
+		const ext = path.extname(fileName);
+		let uniqueFileName = fileName;
+		let counter = 1;
+
+		while (fs.existsSync(uniqueFileName)) {
+			uniqueFileName = `${fileNameWithoutExt} (${counter})${ext}`;
+			counter++;
+		}
+
+		fs.writeFile(uniqueFileName, content, function (err) {
 			if (err) {
-				console.error(`Error writing file ${fileName}: ${err}`);
+				console.error(`Error writing file ${uniqueFileName}: ${err}`);
 				reject(err);
 			} else {
-				resolve(`${fileName} was saved!`);
+				resolve(`${uniqueFileName} was saved!`);
 			}
 		});
 	});

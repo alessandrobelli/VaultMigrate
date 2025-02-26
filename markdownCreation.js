@@ -1,11 +1,6 @@
-import { moment, request } from "obsidian";
-import { extractContentFromPage } from "./notionHandling";
-import {
-	downloadFile,
-	sanitizeTitle,
-	writeFilePromise,
-	generateUniqueTitle,
-} from "./utilities";
+import {moment, request} from "obsidian";
+import {extractContentFromPage} from "./notionHandling";
+import {downloadFile, generateUniqueTitle, sanitizeTitle, writeFilePromise,} from "./utilities";
 import path from "path";
 
 async function createMarkdownFiles(
@@ -21,18 +16,29 @@ async function createMarkdownFiles(
 	enabledProperties,
 	createSemanticLinking,
 	attachmentPath,
-	squashDateNamesForDataview
+	squashDateNamesForDataview,
+	subpagesPath,
+	importSubpages
 ) {
 	const promises = [];
 	const vaultPath = app.vault.adapter.basePath; // Get the base path of the Obsidian vault
 	let pageTitle = "";
+
+	// Initial check if import should proceed
+	if (!importControl || !importControl.isImporting) {
+		logMessage("Import not active or was halted.");
+		return;
+	}
+
 	for (const page of allPages) {
+		if (!importControl.isImporting) {
+			logMessage(
+				"Import halted by user. Finishing remaining subpages and files..."
+			);
+			break;
+		}
 		let relationLinks = [];
 		let relationSemanticLinks = [];
-		if (!importControl.isImporting) {
-			logMessage("Import halted by user.");
-			break; // Exit the loop if import has been halted
-		}
 		let title = "empty";
 		for (const [key, property] of Object.entries(page.properties)) {
 			if (property.title && property.title[0]) {
@@ -84,7 +90,7 @@ async function createMarkdownFiles(
 						property.checkbox ? "true" : "false"
 					}\n`;
 					break;
-				case "date":
+				case "date": {
 					let finalKey = key;
 					if (squashDateNamesForDataview) {
 						finalKey = key
@@ -105,6 +111,7 @@ async function createMarkdownFiles(
 						content += `${safeKey(finalKey)}: null\n`;
 					}
 					break;
+				}
 
 				case "number":
 					if (property.number) {
@@ -262,17 +269,12 @@ async function createMarkdownFiles(
 						}
 
 						if (createRelationContentPage) {
-							// Create relation in YAML list format
-							content += `${safeKey(key)}:\n${relatedNames
+							// Create relation in YAML list format - ONLY add to relationLinks, not to content directly
+							relationLinks.push(`${safeKey(key)}:\n${relatedNames
 								.map((name) => `  - [[${name}]]`)
-								.join("\n")}\n`;
-							relationLinks.push(
-								`${safeKey(key)}: ${relatedNames.map(
-									(name) => `[[${name}]]`
-								)}\n`
-							);
+								.join("\n")}\n`);
 						} else {
-							// Create relation in YAML list format
+							// Create relation in YAML format directly in content
 							content += `${safeKey(key)}:\n${relatedNames
 								.map((name) => `  - ${name}`)
 								.join("\n")}\n`;
@@ -282,6 +284,7 @@ async function createMarkdownFiles(
 					}
 					break;
 
+
 				case "url":
 					if (property.url) {
 						content += `${safeKey(key)}: ${property.url}\n`;
@@ -290,7 +293,7 @@ async function createMarkdownFiles(
 					}
 					break;
 
-				case "rollup":
+				case "rollup": {
 					const rollupArray = property.rollup
 						? property.rollup.array
 						: null; // Check if rollup is defined
@@ -337,6 +340,7 @@ async function createMarkdownFiles(
 					} else {
 						content += `${safeKey(key)}: null\n`; // Handle case when rollupArray is not defined
 					}
+				}
 					break;
 
 				case "title":
@@ -356,8 +360,12 @@ async function createMarkdownFiles(
 			}
 		}
 		content += `---\n`;
-		if (relationLinks.length > 0) content += relationLinks;
-		if (relationSemanticLinks.length > 0) content += relationSemanticLinks;
+		// Only add one type of relation formatting based on settings
+		if (createSemanticLinking && relationSemanticLinks.length > 0) {
+			content += relationSemanticLinks;
+		} else if (relationLinks.length > 0) {
+			content += relationLinks;
+		}
 
 		if (importPageContent) {
 			try {
@@ -366,18 +374,40 @@ async function createMarkdownFiles(
 					pageTitle,
 					apiKey,
 					attachmentPath,
-					vaultPath
+					vaultPath,
+					subpagesPath,
+					logMessage,
+					importControl,
+					app,
+					importSubpages
 				).then((result) => (content += result));
 			} catch (error) {
 				console.error("Error in extractContentFromPage:", error);
 			}
 		}
 
-		promises.push(
-			writeFilePromise(`${vaultPath}/${folderName}/${title}.md`, content)
-		);
+		// Add feedback for current file
+		logMessage(`Importing: ${title}`);
+
+		if (!importControl.forceStop) {
+			promises.push(
+				writeFilePromise(
+					`${vaultPath}/${folderName}/${title}.md`,
+					content
+				)
+			);
+		}
 	}
-	await Promise.all(promises);
+	// Wait for all file writes to complete if we should continue
+	if (importControl.isImporting && !importControl.forceStop) {
+		await Promise.all(promises);
+
+		// Signal completion only if we're still importing
+		if (importControl.isImporting) {
+			logMessage("Migration completed automatically!");
+			importControl.isImporting = false;
+		}
+	}
 }
 
 // Function to get the file extension from the URL
@@ -387,6 +417,4 @@ function getFileExtension(url) {
 	return pathname.split(".").pop() || "";
 }
 
-module.exports = {
-	createMarkdownFiles,
-};
+export {createMarkdownFiles};

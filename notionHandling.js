@@ -1,6 +1,6 @@
-import { request } from "obsidian";
+import {request} from "obsidian";
 import path from "path";
-import { downloadFile, getImageExtension, writeFilePromise } from "./utilities";
+import {downloadFile, getImageExtension, writeFilePromise} from "./utilities";
 
 async function getDatabaseName(apiKey, databaseId) {
 	const requestHeaders = {
@@ -36,7 +36,7 @@ async function fetchNotionData(databaseId, apiKey) {
 	let startCursor = null;
 
 	while (hasMore) {
-		const requestBody = startCursor ? { start_cursor: startCursor } : {};
+		const requestBody = startCursor ? {start_cursor: startCursor} : {};
 
 		const response = await request({
 			url: `https://api.notion.com/v1/databases/${databaseId}/query`,
@@ -67,9 +67,18 @@ async function fetchBlockContent(
 	fileCounter,
 	vaultPath,
 	safeKey,
-	promises
+	promises,
+	subpagesPath,
+	importControl,
+	app,
+	logMessage,
+	importSubpages
 ) {
+	importControl = importControl || {isImporting: false, forceStop: false}; // Default importControl to an object with isImporting and forceStop properties
 	for (const block of blocks.results) {
+		if (importControl && importControl.forceStop) {
+			return content;
+		}
 		// Reset the numbered list counter if the block type changes
 		if (
 			previousBlockType === "numbered_list_item" &&
@@ -183,6 +192,9 @@ async function fetchBlockContent(
 				break;
 
 			case "image":
+				if (importControl && importControl.forceStop) {
+					return content;
+				}
 				if (
 					block.image &&
 					block.image.external &&
@@ -280,6 +292,9 @@ async function fetchBlockContent(
 				break;
 
 			case "video":
+				if (importControl && importControl.forceStop) {
+					return content;
+				}
 				if (
 					block.video &&
 					block.video.type === "external" &&
@@ -290,6 +305,9 @@ async function fetchBlockContent(
 				}
 				break;
 			case "audio":
+				if (importControl && importControl.forceStop) {
+					return content;
+				}
 				if (block.audio && block.audio.file && block.audio.file.url) {
 					const audioUrl = block.audio.file.url;
 					const audioExtension = path.extname(
@@ -309,7 +327,11 @@ async function fetchBlockContent(
 				}
 				break;
 			case "file":
+				if (importControl && importControl.forceStop) {
+					return content;
+				}
 				if (block.file && block.file.file && block.file.file.url) {
+
 					const fileUrl = block.file.file.url;
 					const fileExtension = path.extname(
 						new URL(fileUrl).pathname
@@ -338,30 +360,48 @@ async function fetchBlockContent(
 				}
 				break;
 			case "child_page":
+				if (importControl && importControl.forceStop) {
+					return content;
+				}
 				if (block.child_page && block.child_page.title) {
 					const childPageTitle = block.child_page.title;
-					const childPageId = block.id;
 
-					// Make a recursive call to fetch the content of the child page
-					const childContent = await extractContentFromPage(
-						childPageId,
-						childPageTitle,
-						apiKey,
-						attachmentPath,
-						vaultPath
-					);
+					// Only process the child page content if importSubpages is true
+					if (importSubpages) {
+						const childPageId = block.id;
 
-					// Prepare the path to save the subpage in the /subpages folder
-					const subpagePath = `${vaultPath}/subpages/${safeKey(
-						childPageTitle
-					)}.md`;
+						// Make a recursive call to fetch the content of the child page
+						const childContent = await extractContentFromPage(
+							childPageId,
+							childPageTitle,
+							apiKey,
+							attachmentPath,
+							vaultPath,
+							subpagesPath,
+							logMessage,
+							importControl,
+							app,
+							importSubpages // Pass the parameter
+						);
 
-					// Log and push to promises array
+						// Prepare the path to save the subpage in the folder in the vault
+						const subpagePath = `${vaultPath}/${subpagesPath}/${safeKey(
+							childPageTitle
+						)}.md`;
 
-					promises.push(writeFilePromise(subpagePath, childContent));
+						// Log and push to promises array
+						promises.push(writeFilePromise(subpagePath, childContent));
+					}
 
-					// Link the subpage in the parent page content
-					content += `[[${childPageTitle}]]\n\n`;
+					// Add link based on importSubpages setting
+					if (importSubpages) {
+						// Internal wikilink if we're importing the page
+						content += `[[${childPageTitle}]]\n\n`;
+					} else {
+						// External link to Notion page if not importing
+						const notionPageUrl = `https://www.notion.so/${block.id.replace(/-/g, '')}`;
+						content += `[${childPageTitle}](${notionPageUrl})\n\n`;
+					}
 				}
 				break;
 		}
@@ -369,6 +409,10 @@ async function fetchBlockContent(
 		previousBlockType = block.type;
 
 		if (block.has_children) {
+
+			if (importControl && importControl.forceStop) {
+				return content;
+			}
 			// Fetch children of the block
 			const childBlocksResponse = await request({
 				url: `https://api.notion.com/v1/blocks/${block.id}/children`,
@@ -379,10 +423,12 @@ async function fetchBlockContent(
 				},
 			});
 			const childBlocks = JSON.parse(childBlocksResponse);
-
+			if (importControl && importControl.forceStop) {
+				return content;
+			}
 			// Recursively get the content for child blocks
 			const childContent = await fetchBlockContent(
-				{ results: childBlocks.results },
+				{results: childBlocks.results},
 				previousBlockType,
 				numberCounter,
 				"",
@@ -392,7 +438,12 @@ async function fetchBlockContent(
 				fileCounter,
 				vaultPath,
 				safeKey,
-				promises
+				promises,
+				subpagesPath,
+				importControl,
+				app,
+				logMessage,
+				importSubpages
 			);
 
 			// Add ">" at the start of each line if the block is a "toggle" type
@@ -416,8 +467,19 @@ async function extractContentFromPage(
 	pageName,
 	apiKey,
 	attachmentPath,
-	vaultPath
+	vaultPath,
+	subpagesPath,
+	logMessage,
+	importControl,
+	app,
+	importSubpages
 ) {
+	importControl = importControl || {isImporting: false, forceStop: false}; // Default importControl to an object with isImporting and forceStop properties
+	if (importControl && importControl.forceStop) {
+		logMessage("Import stopped by user.");
+		return "";
+	}
+
 	const requestHeaders = {
 		Authorization: `Bearer ${apiKey}`,
 		"Notion-Version": "2022-06-28",
@@ -425,7 +487,6 @@ async function extractContentFromPage(
 	};
 
 	const safeKey = (key) => (/[^\w\s]/.test(key) ? `"${key}"` : key);
-	const safeValue = (value) => (/[\W_]/.test(value) ? `"${value}"` : value);
 
 	const response = await request({
 		url: `https://api.notion.com/v1/blocks/${pageId}/children`,
@@ -440,6 +501,13 @@ async function extractContentFromPage(
 	let numberCounter = 1;
 	let fileCounter = 1;
 	let previousBlockType = null; // Keep track of the previous block type
+
+	if (importControl && importControl.forceStop) {
+		logMessage && logMessage("Import stopped by user.");
+		return "";
+	}
+
+
 	content = await fetchBlockContent(
 		blocks,
 		previousBlockType,
@@ -451,15 +519,21 @@ async function extractContentFromPage(
 		fileCounter,
 		vaultPath,
 		safeKey,
-		promises
+		promises,
+		subpagesPath,
+		importControl,
+		app,
+		logMessage,
+		importSubpages
 	);
+
+	if (importControl && importControl.forceStop) {
+		logMessage && logMessage("Import stopped by user.");
+		return content;
+	}
 
 	await Promise.all(promises);
 	return content;
 }
 
-module.exports = {
-	fetchNotionData,
-	extractContentFromPage,
-	getDatabaseName,
-};
+export {fetchNotionData, getDatabaseName, extractContentFromPage};

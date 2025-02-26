@@ -1,9 +1,44 @@
 /*
-
 This CSS file will be included with your plugin, and
 available in the app when your plugin is enabled.
-
 */
+
+/* Status Bar Styling */
+.notion-import-status {
+  color: var(--text-accent);
+  font-weight: 600;
+  position: relative;
+  padding-left: 16px; /* Space for the dot */
+}
+
+.notion-import-status::before {
+  content: '';
+  display: block;
+  width: 8px;
+  height: 8px;
+  background-color: var(--text-accent);
+  border-radius: 50%;
+  animation: pulse 1.5s infinite;
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+@keyframes pulse {
+  0% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.6;
+    transform: scale(1.2);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
 
 .loading-container {
 	position: fixed;
@@ -255,9 +290,17 @@ tippy.js css
 }
 
 .n2o-main-header {
-	margin-bottom: 2em;
+	margin-bottom: 0.5em;
 	padding-bottom: 0.5em;
 	border-bottom: 2px solid var(--interactive-accent);
+}
+
+.n2o-subtitle {
+	color: var(--text-muted);
+	margin-top: -0.5em;
+	margin-bottom: 2em;
+	font-size: 1.1em;
+	font-style: italic;
 }
 
 .n2o-section-header {
@@ -302,4 +345,119 @@ tippy.js css
 .setting-item-control {
 	justify-content: flex-end;
 	min-width: 120px;
+}
+
+.import-details-container {
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 4px;
+  margin-top: 8px;
+  margin-bottom: 8px;
+  background-color: var(--background-secondary);
+}
+
+.import-details-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  cursor: pointer;
+  background-color: var(--background-secondary-alt);
+  border-radius: 4px 4px 0 0;
+}
+
+.import-details-header:hover {
+  background-color: var(--background-modifier-hover);
+}
+
+.import-details-content {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.3s ease-out;
+  padding: 0 12px;
+}
+
+.import-details-content.expanded {
+  max-height: 300px !important;
+  overflow-y: auto !important;
+  padding: 8px 12px !important;
+  border-top: 1px solid var(--background-modifier-border) !important;
+}
+
+
+.import-progress {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 5px;
+}
+
+.import-progress-bar {
+  flex-grow: 1;
+  height: 8px;
+  background-color: var(--background-modifier-border);
+  border-radius: 4px;
+  position: relative;
+}
+
+.import-progress-bar-fill {
+  position: absolute;
+  height: 100%;
+  background-color: var(--interactive-accent);
+  border-radius: 4px;
+  transition: width 0.3s ease;
+}
+
+.import-details-item {
+  padding: 4px 0;
+  border-bottom: 1px solid var(--background-modifier-border-hover);
+  font-size: 0.85em;
+}
+
+.import-details-item:last-child {
+  border-bottom: none;
+}
+
+.import-details-item.success {
+  color: var(--text-success);
+}
+
+.import-details-item.error {
+  color: var(--text-error);
+}
+
+.import-details-item.pending {
+  color: var(--text-muted);
+}
+
+.import-details-icon {
+  margin-right: 6px;
+}
+
+.import-details-tabs {
+    display: flex;
+    border-bottom: 1px solid var(--background-modifier-border);
+    margin-bottom: 8px;
+}
+
+.import-details-tab {
+    padding: 4px 12px;
+    cursor: pointer;
+    border-radius: 4px 4px 0 0;
+    margin-right: 2px;
+    font-size: 0.9em;
+}
+
+.import-details-tab:hover {
+    background-color: var(--background-modifier-hover);
+}
+
+.import-details-tab.active {
+    background-color: var(--background-modifier-border);
+    color: var(--text-normal);
+}
+
+.import-details-error {
+    color: var(--text-error);
+    margin-top: 2px;
+    margin-left: 24px;
 }

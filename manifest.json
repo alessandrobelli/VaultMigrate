@@ -1,9 +1,9 @@
 {
 	"id": "notion-to-obsidian",
-	"name": "n2o",
+	"name": "VaultMigrate",
 	"version": "0.9",
 	"minAppVersion": "1.15.0",
-	"description": "This plugin allows you to import your Notion databases into Obsidian.",
+	"description": "Migrate your content from Notion to Obsidian with ease. Import databases, pages, and more!",
 	"author": "Alessandro Belli",
 	"authorUrl": "https://alessandrobelli.it",
 	"fundingUrl": "https://github.com/sponsors/alessandrobelli",

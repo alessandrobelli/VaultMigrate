@@ -1,7 +1,7 @@
 import { App, Plugin } from "obsidian";
-import { NotionMigrationSettingTab } from "./src/ui/NotionMigrationSettingTab";
-import { NotionMigrationSettings, DEFAULT_SETTINGS } from "./src/interfaces/PluginSettings";
-import { ImportControl } from "./src/interfaces/NotionTypes";
+import { NotionMigrationSettingTab } from "./ui/NotionMigrationSettingTab";
+import { NotionMigrationSettings, DEFAULT_SETTINGS } from "./interfaces/PluginSettings";
+import { ImportControl } from "./interfaces/NotionTypes";
 
 export default class NotionMigrationPlugin extends Plugin {
     settings: NotionMigrationSettings;
