@@ -1,11 +1,12 @@
 {
-	"id": "notion-to-obsidian",
+	"id": "vault-migrate",
 	"name": "VaultMigrate",
 	"version": "0.9",
 	"minAppVersion": "1.15.0",
-	"description": "Migrate your content from Notion to Obsidian with ease. Import databases, pages, and more!",
+	"description": "Migrate your content from Notion to your vault with a lot of different options.",
 	"author": "Alessandro Belli",
 	"authorUrl": "https://alessandrobelli.it",
 	"fundingUrl": "https://github.com/sponsors/alessandrobelli",
 	"isDesktopOnly": true
 }
+
