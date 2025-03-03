@@ -1,9 +1,9 @@
-import { App, Notice, PluginSettingTab, Setting, TFolder, request } from "obsidian";
+import { App, Notice, PluginSettingTab, Setting, TFolder, requestUrl } from "obsidian";
 import NotionMigrationPlugin from "../main";
 import { FolderSuggest } from "./FolderSuggest";
 import { fetchNotionData, getDatabaseName } from "../core/notionHandling";
 import { createMarkdownFiles } from "../core/markdownCreation";
-import { NotionProperties } from "../interfaces/NotionTypes";
+import { NotionProperty, NotionProperties, NotionPageResponse } from "../interfaces/NotionTypes";
 import tippy from 'tippy.js';
 
 export class NotionMigrationSettingTab extends PluginSettingTab {
@@ -222,18 +222,15 @@ export class NotionMigrationSettingTab extends PluginSettingTab {
                 }),
             };
 
-            const response = await request(requestOptions);
-            const responseData = JSON.parse(response);
+            const response = await requestUrl(requestOptions);
+            const responseData = JSON.parse(response.text);
 
             const container = document.getElementById('page-list-container');
             if (!container) return;
-            container.innerHTML = '';
+            container.empty(); // Use Obsidian's DOM API to safely clear content
 
             const buttonContainer = container.createDiv({
-                cls: 'hide-button-container',
-                attr: {
-                    style: 'margin-top: 10px; margin-bottom: 10px;display: flex; justify-content: space-between;'
-                }
+                cls: 'n2o-button-container-table'
             });
 
             const hideButton = buttonContainer.createEl('button', {text: 'Hide'});
@@ -247,34 +244,42 @@ export class NotionMigrationSettingTab extends PluginSettingTab {
             });
 
             const tableWrapper = container.createEl('div', {
-                attr: {style: 'max-height: 350px; overflow-y: auto;'}
+                cls: 'n2o-table-wrapper'
             });
 
             const table = tableWrapper.createEl('table', {
-                attr: {style: 'width: 100%; border-collapse: collapse;position: relative'}
+                cls: 'n2o-table'
             });
 
             const thead = table.createEl('thead');
             const headerRow = thead.createEl('tr');
-            headerRow.createEl('th', {text: 'Page Name', attr: {style: 'padding: 10px; border: 1px solid #ccc;'}});
-            headerRow.createEl('th', {text: 'Page ID', attr: {style: 'padding: 10px; border: 1px solid #ccc;'}});
+            headerRow.createEl('th', {text: 'Page Name', cls: 'n2o-table-header'});
+            headerRow.createEl('th', {text: 'Page ID', cls: 'n2o-table-header'});
 
             const tbody = table.createEl('tbody');
 
-            for (const page of responseData.results) {
+            for (const page of responseData.results as NotionPageResponse[]) {
                 const pageName = page.title && page.title[0] && page.title[0].plain_text
                     ? page.title[0].plain_text
                     : '';
                 const row = tbody.createEl('tr');
-                row.createEl('td', {text: pageName, attr: {style: 'padding: 10px; border: 1px solid #ccc;'}});
-                row.createEl('td', {text: page.id, attr: {style: 'padding: 10px; border: 1px solid #ccc;'}});
+                row.createEl('td', {text: pageName, cls: 'n2o-table-cell'});
+                row.createEl('td', {text: page.id, cls: 'n2o-table-cell'});
 
-                let propertiesText = "<strong>Properties</strong> <br>";
-                for (const [key, value] of Object.entries(page.properties as any)) {
-                    propertiesText += `${key} - ${(value as any).type} <br>`;
+                // Create DOM elements for the tooltip content instead of HTML strings
+                const tooltipContent = document.createElement('div');
+                const header = tooltipContent.createEl('strong', {text: 'Properties'});
+                tooltipContent.appendChild(document.createElement('br'));
+                
+                // Use proper type for properties
+                for (const [key, value] of Object.entries(page.properties as NotionProperties)) {
+                    const propertyText = document.createTextNode(`${key} - ${value.type}`);
+                    tooltipContent.appendChild(propertyText);
+                    tooltipContent.appendChild(document.createElement('br'));
                 }
+                
                 tippy(row, {
-                    content: propertiesText,
+                    content: tooltipContent,
                     allowHTML: true,
                     theme: 'light',
                     delay: 100,
@@ -318,14 +323,12 @@ export class NotionMigrationSettingTab extends PluginSettingTab {
 
                         // Create new properties table only if we have data
                         if (allPages.length > 0 && this.collapsibleContent) {
-                            const exampleProperties = allPages[0].properties as any;
+                            const exampleProperties = allPages[0].properties as NotionProperties;
 
                             // Create new properties table
                             const propertiesTable = this.collapsibleContent.createEl('table', {
-                                attr: {
-                                    id: 'properties-table',
-                                    style: 'width: 100%; border-collapse: collapse; margin-top: 20px;'
-                                }
+                                attr: {id: 'properties-table'},
+                                cls: 'n2o-properties-table'
                             });
 
                             // Add header row
@@ -333,15 +336,15 @@ export class NotionMigrationSettingTab extends PluginSettingTab {
                             const propertiesHeaderRow = propertiesThead.createEl('tr');
                             propertiesHeaderRow.createEl('th', {
                                 text: 'Name',
-                                attr: {style: 'padding: 10px; border: 1px solid #ccc;'}
+                                cls: 'n2o-table-cell'
                             });
                             propertiesHeaderRow.createEl('th', {
                                 text: 'Type',
-                                attr: {style: 'padding: 10px; border: 1px solid #ccc;'}
+                                cls: 'n2o-table-cell'
                             });
                             propertiesHeaderRow.createEl('th', {
                                 text: 'Import',
-                                attr: {style: 'padding: 10px; border: 1px solid #ccc;'}
+                                cls: 'n2o-table-cell'
                             });
 
                             // Add properties rows
@@ -350,13 +353,13 @@ export class NotionMigrationSettingTab extends PluginSettingTab {
                                 const propertyRow = propertiesTbody.createEl('tr');
                                 propertyRow.createEl('td', {
                                     text: key,
-                                    attr: {style: 'padding: 10px; border: 1px solid #ccc;'}
+                                    cls: 'n2o-table-cell'
                                 });
                                 propertyRow.createEl('td', {
-                                    text: (value as any).type,
-                                    attr: {style: 'padding: 10px; border: 1px solid #ccc;'}
+                                    text: value.type,
+                                    cls: 'n2o-table-cell'
                                 });
-                                const checkboxCell = propertyRow.createEl('td', {attr: {style: 'padding: 10px; border: 1px solid #ccc;'}});
+                                const checkboxCell = propertyRow.createEl('td', {cls: 'n2o-table-cell'});
                                 const checkbox = checkboxCell.createEl('input', {
                                     attr: {
                                         type: 'checkbox',

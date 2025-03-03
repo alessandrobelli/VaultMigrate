@@ -1,3 +1,49 @@
+/* General Styles */
+.is-hidden {
+  display: none;
+}
+
+/* Table Styles */
+.n2o-table-wrapper {
+  max-height: 350px;
+  overflow-y: auto;
+}
+
+.n2o-table {
+  width: 100%;
+  border-collapse: collapse;
+  position: relative;
+}
+
+.n2o-table-cell {
+  padding: 10px;
+  border: 1px solid var(--background-modifier-border);
+}
+
+.n2o-table-cell,
+.n2o-table-header {
+  padding: 10px;
+  border: 1px solid var(--background-modifier-border);
+}
+
+.n2o-button-container-table {
+  margin-top: 10px;
+  margin-bottom: 10px;
+  display: flex;
+  justify-content: space-between;
+}
+
+.n2o-properties-table {
+  width: 100%;
+  border-collapse: collapse; 
+  margin-top: 20px;
+}
+
+.n2o-properties-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 20px;
+}
 /*
 This CSS file will be included with your plugin, and
 available in the app when your plugin is enabled.

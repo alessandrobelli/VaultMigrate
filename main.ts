@@ -22,7 +22,7 @@ export default class NotionMigrationPlugin extends Plugin {
         // Create the status bar item (initially hidden)
         this.statusBarItem = this.addStatusBarItem();
         this.statusBarItem.addClass('notion-import-status');
-        this.statusBarItem.style.display = 'none';
+        this.statusBarItem.addClass('is-hidden');
     }
     
     async onunload() {
@@ -48,14 +48,14 @@ export default class NotionMigrationPlugin extends Plugin {
     // Method to show the import status in the status bar
     showImportStatus() {
         this.statusBarItem.setText('Migrating content from Notion');
-        this.statusBarItem.style.display = 'block';
+        this.statusBarItem.removeClass('is-hidden');
         // Create animation effect for the text
         this.startStatusAnimation();
     }
 
     // Method to hide the import status from the status bar
     hideImportStatus() {
-        this.statusBarItem.style.display = 'none';
+        this.statusBarItem.addClass('is-hidden');
         // Stop animation if it exists
         this.stopStatusAnimation();
     }

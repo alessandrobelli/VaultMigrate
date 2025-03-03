@@ -1,4 +1,4 @@
-import { request } from "obsidian";
+import { requestUrl } from "obsidian";
 import * as path from "path";
 import { downloadFile, getImageExtension, writeFilePromise } from "../utils/fileUtils";
 import { ImportControl } from "../interfaces/NotionTypes";
@@ -23,13 +23,13 @@ export async function getDatabaseName(apiKey: string, databaseId: string): Promi
     };
 
     try {
-        const response = await request({
+        const response = await requestUrl({
             url: `https://api.notion.com/v1/databases/${databaseId}`,
             method: "GET",
             headers: requestHeaders,
         });
-
-        const data = JSON.parse(response);
+        
+        const data = JSON.parse(response.text);
         return data.title[0].plain_text; // Extracting the database name from the response
     } catch (error) {
         console.error("Error fetching database name:", error);
@@ -54,14 +54,14 @@ export async function fetchNotionData(databaseId: string, apiKey: string) {
     while (hasMore) {
         const requestBody = startCursor ? {start_cursor: startCursor} : {};
 
-        const response = await request({
+        const response = await requestUrl({
             url: `https://api.notion.com/v1/databases/${databaseId}/query`,
             method: "POST",
             headers: requestHeaders,
             body: JSON.stringify(requestBody),
         });
 
-        const data = JSON.parse(response);
+        const data = JSON.parse(response.text);
 
         results.push(...data.results);
 
@@ -437,7 +437,7 @@ async function fetchBlockContent(
                 return content;
             }
             // Fetch children of the block
-            const childBlocksResponse = await request({
+            const childBlocksResponse = await requestUrl({
                 url: `https://api.notion.com/v1/blocks/${block.id}/children`,
                 method: "GET",
                 headers: {
@@ -445,7 +445,7 @@ async function fetchBlockContent(
                     "Notion-Version": "2022-06-28",
                 },
             });
-            const childBlocks = JSON.parse(childBlocksResponse);
+            const childBlocks = JSON.parse(childBlocksResponse.text);
             if (importControl && importControl.forceStop) {
                 return content;
             }
@@ -514,13 +514,13 @@ export async function extractContentFromPage(
 
     const safeKey = (key: string) => (/[^\w\s]/.test(key) ? `"${key}"` : key);
 
-    const response = await request({
+    const response = await requestUrl({
         url: `https://api.notion.com/v1/blocks/${pageId}/children`,
         method: "GET",
         headers: requestHeaders,
     });
 
-    const blocks = JSON.parse(response);
+    const blocks = JSON.parse(response.text);
 
     const promises: Array<Promise<any>> = [];
     let content = "";
