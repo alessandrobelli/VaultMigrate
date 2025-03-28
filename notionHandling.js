@@ -1,5 +1,4 @@
-import {request} from "obsidian";
-import path from "path";
+import {request, normalizePath} from "obsidian";
 import {downloadFile, getImageExtension, writeFilePromise} from "./utilities";
 
 async function getDatabaseName(apiKey, databaseId) {
@@ -16,7 +15,8 @@ async function getDatabaseName(apiKey, databaseId) {
 			headers: requestHeaders,
 		});
 
-		const data = JSON.parse(response);
+		// Use response.json() instead of JSON.parse(response)
+		const data = response.json;
 		return data.title[0].plain_text; // Extracting the database name from the response
 	} catch (error) {
 		console.error("Error fetching database name:", error);
@@ -45,7 +45,8 @@ async function fetchNotionData(databaseId, apiKey) {
 			body: JSON.stringify(requestBody),
 		});
 
-		const data = JSON.parse(response);
+		// Use response.json instead of JSON.parse(response)
+		const data = response.json;
 
 		results.push(...data.results);
 
@@ -65,7 +66,6 @@ async function fetchBlockContent(
 	apiKey,
 	pageName,
 	fileCounter,
-	vaultPath,
 	safeKey,
 	promises,
 	subpagesPath,
@@ -210,12 +210,11 @@ async function fetchBlockContent(
 					// Handle images uploaded to Notion
 					const imageUrl = block.image.file.url;
 					const fileExtension = getImageExtension(imageUrl);
-					const imagePath = path.join(
-						attachmentPath, // Use attachmentPath here
-						`image_${Date.now()}.${fileExtension}`
-					);
-					await downloadFile(imageUrl, imagePath, app, apiKey); // Assuming app and apiKey are available
-					content += `![[${path.basename(imagePath)}]]\n\n`;
+					const imageFileName = `image_${Date.now()}.${fileExtension}`;
+					const imagePath = `${attachmentPath}/${imageFileName}`;
+					
+					await downloadFile(imageUrl, imagePath, app, apiKey);
+					content += `![[${imageFileName}]]\n\n`;
 				}
 				break;
 			case "to_do":
@@ -310,17 +309,12 @@ async function fetchBlockContent(
 				}
 				if (block.audio && block.audio.file && block.audio.file.url) {
 					const audioUrl = block.audio.file.url;
-					const audioExtension = path.extname(
-						new URL(audioUrl).pathname
-					);
+					const audioExtension = getFileExtension(audioUrl);
 					const audioFileName = `${pageName}_${fileCounter}${audioExtension}`;
-					const audioFilePath = path.join(
-						attachmentPath, // Use attachmentPath here
-						audioFileName
-					);
-					await downloadFile(audioUrl, audioFilePath, app, apiKey); // Assuming app and apiKey are available
-
-					content += `![[${path.basename(audioFilePath)}]]\n\n`; // Or however you want to reference the audio file
+					const audioFilePath = `${attachmentPath}/${audioFileName}`;
+					
+					await downloadFile(audioUrl, audioFilePath, app, apiKey);
+					content += `![[${audioFileName}]]\n\n`;
 
 					// Increment the file counter
 					fileCounter++;
@@ -331,16 +325,13 @@ async function fetchBlockContent(
 					return content;
 				}
 				if (block.file && block.file.file && block.file.file.url) {
-
 					const fileUrl = block.file.file.url;
-					const fileExtension = path.extname(
-						new URL(fileUrl).pathname
-					);
+					const fileExtension = getFileExtension(fileUrl);
 					const fileName = `${pageName}_${fileCounter}${fileExtension}`;
-					const filePath = path.join(attachmentPath, fileName);
+					const filePath = `${attachmentPath}/${fileName}`;
+					
 					await downloadFile(fileUrl, filePath, app, apiKey);
-
-					content += `![[${path.basename(filePath)}]]\n\n`;
+					content += `![[${fileName}]]\n\n`;
 
 					// Increment the file counter
 					fileCounter++;
@@ -376,7 +367,6 @@ async function fetchBlockContent(
 							childPageTitle,
 							apiKey,
 							attachmentPath,
-							vaultPath,
 							subpagesPath,
 							logMessage,
 							importControl,
@@ -385,12 +375,10 @@ async function fetchBlockContent(
 						);
 
 						// Prepare the path to save the subpage in the folder in the vault
-						const subpagePath = `${vaultPath}/${subpagesPath}/${safeKey(
-							childPageTitle
-						)}.md`;
+						const subpagePath = `${subpagesPath}/${safeKey(childPageTitle)}.md`;
 
 						// Log and push to promises array
-						promises.push(writeFilePromise(subpagePath, childContent));
+						promises.push(writeFilePromise(subpagePath, childContent, app));
 					}
 
 					// Add link based on importSubpages setting
@@ -409,7 +397,6 @@ async function fetchBlockContent(
 		previousBlockType = block.type;
 
 		if (block.has_children) {
-
 			if (importControl && importControl.forceStop) {
 				return content;
 			}
@@ -422,7 +409,7 @@ async function fetchBlockContent(
 					"Notion-Version": "2022-06-28",
 				},
 			});
-			const childBlocks = JSON.parse(childBlocksResponse);
+			const childBlocks = childBlocksResponse.json;
 			if (importControl && importControl.forceStop) {
 				return content;
 			}
@@ -436,7 +423,6 @@ async function fetchBlockContent(
 				apiKey,
 				pageName,
 				fileCounter,
-				vaultPath,
 				safeKey,
 				promises,
 				subpagesPath,
@@ -467,7 +453,6 @@ async function extractContentFromPage(
 	pageName,
 	apiKey,
 	attachmentPath,
-	vaultPath,
 	subpagesPath,
 	logMessage,
 	importControl,
@@ -494,7 +479,7 @@ async function extractContentFromPage(
 		headers: requestHeaders,
 	});
 
-	const blocks = JSON.parse(response);
+	const blocks = response.json;
 
 	const promises = [];
 	let content = "";
@@ -507,7 +492,6 @@ async function extractContentFromPage(
 		return "";
 	}
 
-
 	content = await fetchBlockContent(
 		blocks,
 		previousBlockType,
@@ -517,7 +501,6 @@ async function extractContentFromPage(
 		apiKey,
 		pageName,
 		fileCounter,
-		vaultPath,
 		safeKey,
 		promises,
 		subpagesPath,
@@ -534,6 +517,13 @@ async function extractContentFromPage(
 
 	await Promise.all(promises);
 	return content;
+}
+
+// Helper function to get file extension from a URL
+function getFileExtension(url) {
+	const urlObj = new URL(url);
+	const pathname = urlObj.pathname;
+	return pathname.split(".").pop() || "";
 }
 
 export {fetchNotionData, getDatabaseName, extractContentFromPage};

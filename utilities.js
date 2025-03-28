@@ -1,46 +1,46 @@
-const {requestUrl} = require("obsidian");
-
-const fs = require("fs");
-const moment = require("moment");
-const axios = require("axios");
-const path = require("path");
-
+import { requestUrl, moment, normalizePath, TFolder } from "obsidian";
+import axios from "axios";
 async function downloadImage(url, folderName, app) {
-	const vaultPath = app.vault.adapter.basePath;
-
 	const response = await axios.get(url, {
 		responseType: "arraybuffer",
 	});
 
-	const filename = path.join(vaultPath, folderName, path.basename(url));
-	fs.writeFileSync(filename, response.data);
+	const filename = `${folderName}/${getFilenameFromUrl(url)}`;
+	await app.vault.createBinary(normalizePath(filename), response.data);
 
 	return filename;
 }
 
-const createFolder = async (app) => {
-	const vaultPath = app.vault.adapter.basePath;
+// Helper function to extract filename from URL
+function getFilenameFromUrl(url) {
+	const urlObj = new URL(url);
+	const pathname = urlObj.pathname;
+	const filename = pathname.split('/').pop();
+	return filename || `file_${Date.now()}`;
+}
 
+// Create a folder in the vault
+async function createFolder(app) {
 	const folderName = moment().format("YYYY-MM-DD-HH-mm-ss");
-	return new Promise((resolve, reject) => {
-		fs.mkdir(path.join(vaultPath, folderName), (err) => {
-			if (err) {
-				reject(err);
-			}
-			resolve(folderName);
-		});
-	});
-};
-
-async function downloadFile(url, outputPath, app) {
-	const vaultPath = app.vault.adapter.basePath;
-	const fullPath = path.join(vaultPath, outputPath);
-
 	try {
-		// Ensure the directory exists before trying to write the file
-		const dir = path.dirname(fullPath);
-		if (!fs.existsSync(dir)) {
-			fs.mkdirSync(dir, {recursive: true});
+		await app.vault.createFolder(folderName);
+		return folderName;
+	} catch (error) {
+		console.error(`Error creating folder: ${error}`);
+		throw error;
+	}
+}
+
+// Download a file and save it to the vault
+async function downloadFile(url, outputPath, app, apiKey) {
+	try {
+		// Ensure parent folders exist
+		const dir = outputPath.substring(0, outputPath.lastIndexOf('/'));
+		if (dir) {
+			const folderExists = app.vault.getAbstractFileByPath(normalizePath(dir)) instanceof TFolder;
+			if (!folderExists) {
+				await app.vault.createFolder(normalizePath(dir));
+			}
 		}
 
 		const response = await requestUrl({
@@ -48,6 +48,7 @@ async function downloadFile(url, outputPath, app) {
 			method: "GET",
 			headers: {
 				"Content-Type": "application/octet-stream",
+				...(apiKey ? { Authorization: `Bearer ${apiKey}` } : {}),
 			},
 			mode: "no-cors",
 			cache: "default",
@@ -60,22 +61,26 @@ async function downloadFile(url, outputPath, app) {
 		// Convert the response to an ArrayBuffer
 		const arrayBuffer = await response.arrayBuffer;
 
-		// Write the ArrayBuffer to the filesystem
-		fs.writeFileSync(
-			fullPath,
+		// Create the file in Obsidian
+		await app.vault.createBinary(
+			normalizePath(outputPath),
 			new Uint8Array(arrayBuffer)
 		);
+
+		return outputPath;
 	} catch (error) {
 		console.error("Error in downloadFile:", error);
 		throw error;
 	}
 }
 
+// Get the extension of an image from a URL
 const getImageExtension = (url) => {
 	const extensionMatch = url.match(/\.(jpeg|jpg|gif|png)/);
 	return extensionMatch ? extensionMatch[1] : "png";
 };
 
+// Remove special characters from a title
 const sanitizeTitle = (title) => {
 	// Remove special characters and limit length
 	return title
@@ -83,47 +88,43 @@ const sanitizeTitle = (title) => {
 		.substring(0, 200);
 };
 
-const generateUniqueTitle = (title, folderPath) => {
+// Generate a unique title for a file
+async function generateUniqueTitle(title, folderPath, app) {
 	let uniqueTitle = title;
 	let counter = 1;
-	while (fs.existsSync(`${folderPath}/${uniqueTitle}.md`)) {
+	const mdPath = `${folderPath}/${uniqueTitle}.md`;
+
+	// Check if file exists in the vault
+	while (app.vault.getAbstractFileByPath(normalizePath(mdPath))) {
 		uniqueTitle = `${title} (${counter})`;
 		counter += 1;
 	}
+
 	return uniqueTitle;
-};
+}
 
-const writeFilePromise = (fileName, content) => {
-	return new Promise((resolve, reject) => {
-		// Ensure directory exists
-		const dir = path.dirname(fileName);
-		if (!fs.existsSync(dir)) {
-			fs.mkdirSync(dir, {recursive: true});
-		}
-
-		// Generate unique filename
-		const fileNameWithoutExt = path.join(dir, path.parse(fileName).name);
-		const ext = path.extname(fileName);
-		let uniqueFileName = fileName;
-		let counter = 1;
-
-		while (fs.existsSync(uniqueFileName)) {
-			uniqueFileName = `${fileNameWithoutExt} (${counter})${ext}`;
-			counter++;
-		}
-
-		fs.writeFile(uniqueFileName, content, function (err) {
-			if (err) {
-				console.error(`Error writing file ${uniqueFileName}: ${err}`);
-				reject(err);
-			} else {
-				resolve(`${uniqueFileName} was saved!`);
+// Write content to a file in the vault
+async function writeFilePromise(filePath, content, app) {
+	try {
+		// Ensure parent folder exists
+		const dir = filePath.substring(0, filePath.lastIndexOf('/'));
+		if (dir) {
+			const folder = app.vault.getAbstractFileByPath(normalizePath(dir));
+			if (!folder || !(folder instanceof TFolder)) {
+				await app.vault.createFolder(normalizePath(dir));
 			}
-		});
-	});
-};
+		}
 
-module.exports = {
+		// Create file
+		await app.vault.create(normalizePath(filePath), content);
+		return `${filePath} was saved!`;
+	} catch (error) {
+		console.error(`Error writing file ${filePath}: ${error}`);
+		throw error;
+	}
+}
+
+export {
 	downloadImage,
 	createFolder,
 	downloadFile,
@@ -131,4 +132,5 @@ module.exports = {
 	sanitizeTitle,
 	writeFilePromise,
 	generateUniqueTitle,
+	getFilenameFromUrl
 };

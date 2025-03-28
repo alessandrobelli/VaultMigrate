@@ -1,7 +1,6 @@
-import {moment, request} from "obsidian";
+import {moment, request, normalizePath} from "obsidian";
 import {extractContentFromPage} from "./notionHandling";
-import {downloadFile, generateUniqueTitle, sanitizeTitle, writeFilePromise,} from "./utilities";
-import path from "path";
+import {downloadFile, generateUniqueTitle, sanitizeTitle, writeFilePromise, getFilenameFromUrl} from "./utilities";
 
 async function createMarkdownFiles(
 	allPages,
@@ -21,7 +20,6 @@ async function createMarkdownFiles(
 	importSubpages
 ) {
 	const promises = [];
-	const vaultPath = app.vault.adapter.basePath; // Get the base path of the Obsidian vault
 	let pageTitle = "";
 
 	// Initial check if import should proceed
@@ -50,7 +48,7 @@ async function createMarkdownFiles(
 		}
 		// Append the Notion page ID to the title to ensure uniqueness
 		if (attachPageId) title = `${title}_${page.id}`;
-		else title = generateUniqueTitle(title, `${vaultPath}/${folderName}`);
+		else title = await generateUniqueTitle(title, folderName, app);
 
 		let content = `---\n`;
 
@@ -165,12 +163,7 @@ async function createMarkdownFiles(
 
 								const fileExtension = getFileExtension(fileUrl);
 								const safeFileName = sanitizeTitle(fileName);
-								const outputPath = path.join(
-									attachmentPath,
-									`${safeFileName}${
-										fileExtension ? "." + fileExtension : ""
-									}`
-								);
+								const outputPath = `${attachmentPath}/${safeFileName}${fileExtension ? "." + fileExtension : ""}`;
 
 								await downloadFile(
 									fileUrl,
@@ -178,9 +171,11 @@ async function createMarkdownFiles(
 									app,
 									apiKey
 								);
-								content += `  - [[${path.basename(
-									outputPath
-								)}]]\n`;
+								
+								// Extract just the filename without the path
+								const filename = safeFileName + (fileExtension ? "." + fileExtension : "");
+								content += `  - [[${filename}]]\n`;
+								
 								logMessage(`Downloaded file: ${fileName}`);
 							} catch (error) {
 								const errorMsg = `Failed to download file: ${error.message}`;
@@ -246,11 +241,11 @@ async function createMarkdownFiles(
 						for (const rel of property.relation) {
 							const pageId = rel.id;
 							const response = await request({
-								url: `https://api.notion.com/v1/pages/${pageId}`,
-								method: "GET",
-								headers: requestHeaders,
+							url: `https://api.notion.com/v1/pages/${pageId}`,
+							method: "GET",
+							headers: requestHeaders,
 							});
-							const pageData = JSON.parse(response);
+							const pageData = response.json;
 							const pageName =
 								pageData.properties.Name.title[0].plain_text;
 							relatedNames.push(pageName);
@@ -374,7 +369,6 @@ async function createMarkdownFiles(
 					pageTitle,
 					apiKey,
 					attachmentPath,
-					vaultPath,
 					subpagesPath,
 					logMessage,
 					importControl,
@@ -392,8 +386,9 @@ async function createMarkdownFiles(
 		if (!importControl.forceStop) {
 			promises.push(
 				writeFilePromise(
-					`${vaultPath}/${folderName}/${title}.md`,
-					content
+					`${folderName}/${title}.md`,
+					content,
+					app
 				)
 			);
 		}

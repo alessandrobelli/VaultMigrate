@@ -16,8 +16,8 @@ class Suggest<T> {
         this.owner = owner;
         this.containerEl = containerEl;
 
-        containerEl.on("click", ".suggestion-item", this.onSuggestionClick.bind(this));
-        containerEl.on("mousemove", ".suggestion-item", this.onSuggestionMouseover.bind(this));
+        containerEl.on("click", ".n2o-suggestion-item", this.onSuggestionClick.bind(this));
+        containerEl.on("mousemove", ".n2o-suggestion-item", this.onSuggestionMouseover.bind(this));
 
         scope.register([], "ArrowUp", (event) => {
             if (!event.isComposing) {
@@ -58,7 +58,7 @@ class Suggest<T> {
         const suggestionEls: HTMLDivElement[] = [];
 
         values.forEach((value) => {
-            const suggestionEl = this.containerEl.createDiv("suggestion-item");
+            const suggestionEl = this.containerEl.createDiv("n2o-suggestion-item");
             this.owner.renderSuggestion(value, suggestionEl);
             suggestionEls.push(suggestionEl);
         });
@@ -80,8 +80,8 @@ class Suggest<T> {
         const prevSelectedSuggestion = this.suggestions[this.selectedItem];
         const selectedSuggestion = this.suggestions[normalizedIndex];
 
-        prevSelectedSuggestion?.removeClass("is-selected");
-        selectedSuggestion?.addClass("is-selected");
+        prevSelectedSuggestion?.removeClass("active");
+        selectedSuggestion?.addClass("active");
 
         this.selectedItem = normalizedIndex;
 
@@ -105,8 +105,8 @@ export abstract class TextInputSuggest<T> implements ISuggestOwner<T> {
         this.inputEl = inputEl;
         this.scope = new Scope();
 
-        this.suggestEl = createDiv("suggestion-container");
-        const suggestion = this.suggestEl.createDiv("suggestion");
+        this.suggestEl = createDiv("n2o-suggestion-container");
+        const suggestion = this.suggestEl.createDiv("n2o-suggestion");
         this.suggest = new Suggest(this, suggestion, this.scope);
 
         this.scope.register([], "Escape", this.close.bind(this));
@@ -114,7 +114,7 @@ export abstract class TextInputSuggest<T> implements ISuggestOwner<T> {
         this.inputEl.addEventListener("input", this.onInputChanged.bind(this));
         this.inputEl.addEventListener("focus", this.onInputChanged.bind(this));
         this.inputEl.addEventListener("blur", this.close.bind(this));
-        this.suggestEl.on("mousedown", ".suggestion-container", (event: MouseEvent) => {
+        this.suggestEl.on("mousedown", ".n2o-suggestion-container", (event: MouseEvent) => {
             event.preventDefault();
         });
     }
@@ -172,5 +172,4 @@ export abstract class TextInputSuggest<T> implements ISuggestOwner<T> {
     abstract renderSuggestion(item: T, el: HTMLElement): void;
     abstract selectSuggestion(item: T): void;
 }
-
 export default TextInputSuggest;

@@ -152,19 +152,19 @@ available in the app when your plugin is enabled.
 	animation: spin 1s linear infinite;
 }
 
-.suggestion-item:hover {
+.n2o-suggestion-item:hover {
 	background-color: #e0e0e0;
 }
 
-.suggestion-item.active {
+.n2o-suggestion-item.active {
 	background-color: #d1d1d1;
 }
 
-tbody tr:hover {
+.n2o-table tbody tr:hover {
 	opacity: 0.8;
 }
 
-tbody {
+.n2o-table tbody {
 	cursor: pointer;
 }
 
@@ -383,7 +383,7 @@ tippy.js css
 	margin-top: 1em;
 }
 
-.setting-item {
+.n2o-setting-item {
 	padding: 0.75em 0;
 	border-top: none;
 }

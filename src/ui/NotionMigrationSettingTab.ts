@@ -62,7 +62,7 @@ export class NotionMigrationSettingTab extends PluginSettingTab {
             startButton.disabled = true;
             stopButton.disabled = false;
         } else {
-            startButton.textContent = "Start Migration";
+            startButton.textContent = "Start migration";
             startButton.disabled = false;
             stopButton.disabled = true;
         }
@@ -159,7 +159,7 @@ export class NotionMigrationSettingTab extends PluginSettingTab {
                 this.hideLoading();
 
                 // Update UI regardless of success or failure
-                startButton.textContent = "Start Migration";
+                startButton.textContent = "Start migration";
                 startButton.disabled = false;
                 stopButton.disabled = true;
 
@@ -190,7 +190,7 @@ export class NotionMigrationSettingTab extends PluginSettingTab {
 
             await this.plugin.saveSettings();
             stopButton.disabled = true;
-            startButton.textContent = "Start Migration";
+            startButton.textContent = "Start migration";
         });
     }
 
@@ -223,7 +223,7 @@ export class NotionMigrationSettingTab extends PluginSettingTab {
             };
 
             const response = await requestUrl(requestOptions);
-            const responseData = JSON.parse(response.text);
+            const responseData = response.json;
 
             const container = document.getElementById('page-list-container');
             if (!container) return;
@@ -253,7 +253,7 @@ export class NotionMigrationSettingTab extends PluginSettingTab {
 
             const thead = table.createEl('thead');
             const headerRow = thead.createEl('tr');
-            headerRow.createEl('th', {text: 'Page Name', cls: 'n2o-table-header'});
+            headerRow.createEl('th', {text: 'Page name', cls: 'n2o-table-header'});
             headerRow.createEl('th', {text: 'Page ID', cls: 'n2o-table-header'});
 
             const tbody = table.createEl('tbody');
@@ -391,21 +391,23 @@ export class NotionMigrationSettingTab extends PluginSettingTab {
     private createUI(containerEl: HTMLElement) {
         containerEl.empty();
 
+        // Remove top-level H1 heading
+        /*
         containerEl.createEl("h1", {
             text: "VaultMigrate",
             cls: "n2o-main-header"
         });
+        */
 
         containerEl.createEl("p", {
             text: "Migrate your content from Notion to Obsidian",
             cls: "n2o-subtitle"
         });
 
-        // Connection Settings Section
-        containerEl.createEl("h2", {
-            text: "Notion Connection",
-            cls: "n2o-section-header"
-        });
+        // Notion connection section
+        new Setting(containerEl)
+            .setName('Notion connection')
+            .setHeading();
 
         new Setting(containerEl)
             .setName("Notion API Key")
@@ -424,7 +426,7 @@ export class NotionMigrationSettingTab extends PluginSettingTab {
                 })
             )
             .addButton(button => button
-                .setButtonText("Search DBs")
+                .setButtonText("Search databases")
                 .setCta()
                 .onClick(() => {
                     this.displayPageList();
@@ -435,11 +437,10 @@ export class NotionMigrationSettingTab extends PluginSettingTab {
             attr: {id: 'page-list-container'}
         });
 
-        // Database Settings Section
-        containerEl.createEl("h2", {
-            text: "Notion Database",
-            cls: "n2o-section-header"
-        });
+        // Notion database section
+        new Setting(containerEl)
+            .setName('Notion database')
+            .setHeading();
 
         new Setting(containerEl)
             .setName("Database ID")
@@ -456,7 +457,7 @@ export class NotionMigrationSettingTab extends PluginSettingTab {
             });
 
         const collapsibleHeader = containerEl.createEl("button", {
-            text: "Show Table Properties",
+            text: "Show table properties",
             attr: {class: 'collapsible'}
         });
 
@@ -472,11 +473,10 @@ export class NotionMigrationSettingTab extends PluginSettingTab {
             attr: {class: 'collapsible-content'}
         });
 
-        // Migration Settings Section
-        containerEl.createEl("h2", {
-            text: "Destination Settings",
-            cls: "n2o-section-header"
-        });
+        // Destination section
+        new Setting(containerEl)
+            .setName('Destination')
+            .setHeading();
 
         new Setting(containerEl)
             .setName("Migration Path")
@@ -505,7 +505,7 @@ export class NotionMigrationSettingTab extends PluginSettingTab {
         new Setting(containerEl)
             .setName("Subpages Path")
             .setDesc("Select where to save subpages (mandatory)")
-            .setClass("setting-item")
+            .setClass("n2o-setting-item")
             .addText((text) => {
                 text.setValue(this.plugin.settings.subpagesPath)
                     .setPlaceholder("subpages")
@@ -521,11 +521,10 @@ export class NotionMigrationSettingTab extends PluginSettingTab {
                 new FolderSuggest(this.app, text.inputEl);
             });
 
-        // Content Settings Section
-        containerEl.createEl("h2", {
-            text: "Content Options",
-            cls: "n2o-section-header"
-        });
+        // Content section
+        new Setting(containerEl)
+            .setName('Content')
+            .setHeading();
 
         new Setting(containerEl)
             .setName("Create clickable links in content")
@@ -599,11 +598,10 @@ export class NotionMigrationSettingTab extends PluginSettingTab {
                     })
             );
 
-        // Migration Log Section
-        containerEl.createEl("h2", {
-            text: "Migration Log",
-            cls: "n2o-section-header"
-        });
+        // Migration log section
+        new Setting(containerEl)
+            .setName('Migration log')
+            .setHeading();
 
         const logWindow = containerEl.createEl("textarea", {
             attr: {
@@ -617,17 +615,17 @@ export class NotionMigrationSettingTab extends PluginSettingTab {
         });
 
         const startButton = buttonContainer.createEl("button", {
-            text: "Start Migration",
+            text: "Start migration",
             cls: ["mod-cta", "n2o-start-button"],
         });
 
         const stopButton = buttonContainer.createEl("button", {
-            text: "Stop Migration",
+            text: "Stop migration",
             cls: ["mod-warning", "n2o-stop-button"],
         });
 
         const clearButton = buttonContainer.createEl("button", {
-            text: "Clear Log",
+            text: "Clear log",
             cls: "mod-warning",
         });
 

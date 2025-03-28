@@ -141,12 +141,17 @@ export class ImportTracker {
 
 		if (existingItem) {
 			existingItem.className = `import-details-item ${status}`;
-			existingItem.innerHTML = this.getItemHTML(id, item, status);
+			// Clear existing content
+			while (existingItem.firstChild) {
+				existingItem.removeChild(existingItem.firstChild);
+			}
+			// Append new content
+			this.appendItemContent(existingItem, id, item, status);
 		} else {
 			const itemElement = document.createElement('div');
 			itemElement.id = `import-item-${this.sanitizeId(id)}`;
 			itemElement.className = `import-details-item ${status}`;
-			itemElement.innerHTML = this.getItemHTML(id, item, status);
+			this.appendItemContent(itemElement, id, item, status);
 
 			// Add to beginning of log to show newest first
 			this.ui.log.prepend(itemElement);
@@ -163,7 +168,7 @@ export class ImportTracker {
 		return id.replace(/[^a-zA-Z0-9]/g, '_');
 	}
 
-	private getItemHTML(id: string, item: any, status: string) {
+	private appendItemContent(element: HTMLElement, id: string, item: any, status: string) {
 		const filename = id.split('/').pop();
 
 		// Choose appropriate icon based on file type
@@ -179,17 +184,32 @@ export class ImportTracker {
 
 		const statusIcon = status === 'pending' ? '⏳' : status === 'success' ? '✅' : '❌';
 
-		let html = `
-            <span class="import-details-icon">${statusIcon} ${icon}</span>
-            <span>${item.type === 'attachment' ? 'File: ' : 'Subpage: '} ${filename}</span>
-            <small> (in ${item.parentPage})</small>
-        `;
+		// Create icon span
+		const iconSpan = document.createElement('span');
+		iconSpan.className = 'import-details-icon';
+		iconSpan.textContent = `${statusIcon} ${icon}`;
+		element.appendChild(iconSpan);
+
+		// Create content span
+		const contentSpan = document.createElement('span');
+		contentSpan.textContent = `${item.type === 'attachment' ? 'File: ' : 'Subpage: '} ${filename}`;
+		element.appendChild(contentSpan);
+
+		// Create parent page info
+		const parentSmall = document.createElement('small');
+		parentSmall.textContent = ` (in ${item.parentPage})`;
+		element.appendChild(parentSmall);
 
 		// Add error message if there is one
 		if (status === 'error' && item.error) {
-			html += `<div class="import-details-error"><small>Error: ${item.error}</small></div>`;
+			const errorDiv = document.createElement('div');
+			errorDiv.className = 'import-details-error';
+			
+			const errorSmall = document.createElement('small');
+			errorSmall.textContent = `Error: ${item.error}`;
+			errorDiv.appendChild(errorSmall);
+			
+			element.appendChild(errorDiv);
 		}
-
-		return html;
 	}
 }
